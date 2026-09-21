@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">GeminiFlow</string>
+    <string name="service_notification_channel_id">gemini_flow_server_channel</string>
+    <string name="service_notification_channel_name">GeminiFlow 本地伺服器</string>
+    <string name="service_notification_channel_desc">維持 GeminiFlow 背景本地 HTTP 伺服器運作</string>
+    <string name="service_running_title">GeminiFlow 服務運行中</string>
+    <string name="service_running_desc">本地服務監聽於 http://%1$s:%2$d</string>
+    <string name="action_stop_service">停止服務</string>
+</resources>
