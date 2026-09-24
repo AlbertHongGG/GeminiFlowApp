@@ -6,12 +6,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.geminiflow.app.GeminiFlowApplication
 import com.geminiflow.app.domain.model.ChatRequest
+import com.geminiflow.app.domain.model.PlaygroundChatMessage
+import com.geminiflow.app.domain.model.TrafficFilter
 import com.geminiflow.app.service.BootReceiver
 import com.geminiflow.app.service.GeminiForegroundService
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class MainViewModel : ViewModel() {
@@ -21,15 +26,22 @@ class MainViewModel : ViewModel() {
     private val ktorServer = app.ktorServer
     private val batteryHelper = app.batteryOptimizationHelper
     private val streamChatUseCase = app.streamChatUseCase
+    private val trafficLogManager = app.trafficLogManager
+    private val imageStorageManager = app.imageStorageManager
 
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
+
+    private var uptimeTickerJob: Job? = null
+    private var playgroundJob: Job? = null
 
     init {
         loadSettings()
         observeServerStatus()
         observeAuthStatus()
+        observeTrafficLogs()
         refreshBatteryStatus()
+        refreshCacheStats()
     }
 
     private fun loadSettings() {
@@ -57,21 +69,55 @@ class MainViewModel : ViewModel() {
                         isServerRunning = status.isRunning,
                         serverHost = status.host,
                         serverPort = status.port,
+                        serverStartTime = status.startTime,
                         totalRequests = status.totalRequests,
                         activeConnections = status.activeConnections,
                         serverErrorMessage = status.errorMessage
                     )
                 }
+
+                if (status.isRunning && status.startTime != null) {
+                    startUptimeTicker(status.startTime)
+                } else {
+                    stopUptimeTicker()
+                }
             }
         }
+    }
+
+    private fun startUptimeTicker(startTime: Long) {
+        uptimeTickerJob?.cancel()
+        uptimeTickerJob = viewModelScope.launch {
+            while (isActive) {
+                val elapsedSeconds = (System.currentTimeMillis() - startTime) / 1000
+                val hours = elapsedSeconds / 3600
+                val minutes = (elapsedSeconds % 3600) / 60
+                val seconds = elapsedSeconds % 60
+                val formatted = String.format("%02d:%02d:%02d", hours, minutes, seconds)
+                _uiState.update { it.copy(uptimeFormatted = formatted) }
+                delay(1000)
+            }
+        }
+    }
+
+    private fun stopUptimeTicker() {
+        uptimeTickerJob?.cancel()
+        uptimeTickerJob = null
+        _uiState.update { it.copy(uptimeFormatted = "00:00:00") }
     }
 
     private fun observeAuthStatus() {
         viewModelScope.launch {
             authRepo.isAuthenticated.collect { auth ->
-                _uiState.update {
-                    it.copy(isAuthenticated = auth)
-                }
+                _uiState.update { it.copy(isAuthenticated = auth) }
+            }
+        }
+    }
+
+    private fun observeTrafficLogs() {
+        viewModelScope.launch {
+            trafficLogManager.logs.collect { logs ->
+                _uiState.update { it.copy(trafficLogs = logs) }
             }
         }
     }
@@ -79,6 +125,23 @@ class MainViewModel : ViewModel() {
     fun refreshBatteryStatus() {
         val unrestricted = batteryHelper.isIgnoringBatteryOptimizations()
         _uiState.update { it.copy(isBatteryUnrestricted = unrestricted) }
+    }
+
+    fun refreshCacheStats() {
+        val (count, bytes) = imageStorageManager.getCacheStats()
+        _uiState.update {
+            it.copy(
+                cacheFilesCount = count,
+                cacheSizeBytes = bytes
+            )
+        }
+    }
+
+    fun clearCache() {
+        viewModelScope.launch {
+            imageStorageManager.clearOldImages(0)
+            refreshCacheStats()
+        }
     }
 
     fun toggleServer(context: Context) {
@@ -127,46 +190,110 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    fun runTestPrompt(prompt: String) {
-        if (prompt.isBlank()) return
+    // Traffic Actions
+    fun setTrafficFilter(filter: TrafficFilter) {
+        _uiState.update { it.copy(trafficFilter = filter) }
+    }
+
+    fun clearTrafficLogs() {
+        trafficLogManager.clear()
+    }
+
+    // Playground Sandbox Actions
+    fun selectModel(model: String) {
+        _uiState.update { it.copy(selectedModel = model) }
+    }
+
+    fun updatePromptInput(text: String) {
+        _uiState.update { it.copy(promptInput = text) }
+    }
+
+    fun clearPlaygroundChat() {
+        _uiState.update { it.copy(playgroundMessages = emptyList()) }
+    }
+
+    fun cancelPlaygroundGeneration() {
+        playgroundJob?.cancel()
+        playgroundJob = null
+        _uiState.update { state ->
+            val updated = state.playgroundMessages.map {
+                if (it.isStreaming) it.copy(isStreaming = false, text = it.text + " [已中斷]") else it
+            }
+            state.copy(isGenerating = false, playgroundMessages = updated)
+        }
+    }
+
+    fun sendPlaygroundPrompt() {
+        val prompt = _uiState.value.promptInput.trim()
+        if (prompt.isBlank() || _uiState.value.isGenerating) return
+
+        val userMessage = PlaygroundChatMessage(
+            isUser = true,
+            text = prompt
+        )
+        val assistantMessage = PlaygroundChatMessage(
+            isUser = false,
+            text = "",
+            isStreaming = true
+        )
 
         _uiState.update {
             it.copy(
-                isTesting = true,
-                testPrompt = prompt,
-                testResponseText = "",
-                testResponseImages = emptyList()
+                isGenerating = true,
+                promptInput = "",
+                playgroundMessages = it.playgroundMessages + userMessage + assistantMessage
             )
         }
 
-        viewModelScope.launch {
+        playgroundJob = viewModelScope.launch {
+            val textBuilder = StringBuilder()
+            val images = mutableListOf<String>()
+
             try {
                 val req = ChatRequest(
                     prompt = prompt,
-                    model = "gemini-3-pro"
+                    model = _uiState.value.selectedModel
                 )
-                val textBuilder = StringBuilder()
-                val images = mutableListOf<String>()
 
                 streamChatUseCase(req).collect { chunk ->
                     if (!chunk.text.isNullOrEmpty()) {
                         textBuilder.append(chunk.text)
-                        _uiState.update { it.copy(testResponseText = textBuilder.toString()) }
                     }
                     if (!chunk.imageLocalPath.isNullOrEmpty()) {
                         images.add(chunk.imageLocalPath!!)
-                        _uiState.update { it.copy(testResponseImages = images) }
                     } else if (!chunk.imageUrl.isNullOrEmpty()) {
                         images.add(chunk.imageUrl!!)
-                        _uiState.update { it.copy(testResponseImages = images) }
+                    }
+
+                    _uiState.update { state ->
+                        val updated = state.playgroundMessages.map {
+                            if (it.id == assistantMessage.id) {
+                                it.copy(
+                                    text = textBuilder.toString(),
+                                    images = ArrayList(images),
+                                    isStreaming = true
+                                )
+                            } else it
+                        }
+                        state.copy(playgroundMessages = updated)
                     }
                 }
             } catch (e: Exception) {
-                _uiState.update {
-                    it.copy(testResponseText = "測試請求發生錯誤: ${e.message}")
-                }
+                textBuilder.append("\n[生成失敗: ${e.message}]")
             } finally {
-                _uiState.update { it.copy(isTesting = false) }
+                _uiState.update { state ->
+                    val updated = state.playgroundMessages.map {
+                        if (it.id == assistantMessage.id) {
+                            it.copy(
+                                text = textBuilder.toString(),
+                                images = ArrayList(images),
+                                isStreaming = false
+                            )
+                        } else it
+                    }
+                    state.copy(isGenerating = false, playgroundMessages = updated)
+                }
+                refreshCacheStats()
             }
         }
     }

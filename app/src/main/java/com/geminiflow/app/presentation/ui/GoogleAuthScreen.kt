@@ -18,6 +18,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -27,11 +28,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.geminiflow.app.GeminiFlowApplication
 import com.geminiflow.app.data.auth.browser.AuthBrowserConfig
 import com.geminiflow.app.data.auth.browser.CookieBridge
 import com.geminiflow.app.data.auth.browser.SecureAuthWebViewSetup
+import com.geminiflow.app.presentation.theme.AccentBlue
+import com.geminiflow.app.presentation.theme.BorderLight
+import com.geminiflow.app.presentation.theme.SurfaceCard
+import com.geminiflow.app.presentation.theme.TextPrimary
+import com.geminiflow.app.presentation.theme.TextSecondary
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -60,10 +68,21 @@ fun GoogleAuthScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Google 帳號登入") },
+                title = {
+                    Text(
+                        text = "Google 帳號登入",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "返回",
+                            tint = TextPrimary
+                        )
                     }
                 },
                 actions = {
@@ -83,12 +102,12 @@ fun GoogleAuthScreen(
                             }
                         }
                     ) {
-                        Icon(Icons.Default.Devices, contentDescription = "切換 UA 核心")
+                        Icon(Icons.Default.Devices, contentDescription = "切換 UA 核心", tint = TextSecondary)
                     }
                     IconButton(onClick = {
                         webViewInstance?.reload()
                     }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "重新整理")
+                        Icon(Icons.Default.Refresh, contentDescription = "重新整理", tint = TextSecondary)
                     }
                     IconButton(onClick = {
                         scope.launch {
@@ -101,9 +120,13 @@ fun GoogleAuthScreen(
                             }
                         }
                     }) {
-                        Icon(Icons.Default.Delete, contentDescription = "清除登入狀態")
+                        Icon(Icons.Default.Delete, contentDescription = "清除登入狀態", tint = TextSecondary)
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = SurfaceCard,
+                    titleContentColor = TextPrimary
+                )
             )
         }
     ) { padding ->
@@ -115,6 +138,8 @@ fun GoogleAuthScreen(
             if (pageProgress in 0.01f..0.99f) {
                 LinearProgressIndicator(
                     progress = { pageProgress },
+                    color = AccentBlue,
+                    trackColor = BorderLight,
                     modifier = Modifier.fillMaxWidth()
                 )
             }

@@ -1,18 +1,51 @@
 package com.geminiflow.app.presentation.viewmodel
 
+import com.geminiflow.app.domain.model.PlaygroundChatMessage
+import com.geminiflow.app.domain.model.TrafficFilter
+import com.geminiflow.app.domain.model.TrafficLog
+
 data class MainUiState(
+    // Server Core State
     val isServerRunning: Boolean = false,
     val serverHost: String = "127.0.0.1",
     val serverPort: Int = 5000,
-    val isAuthenticated: Boolean = false,
-    val isBatteryUnrestricted: Boolean = false,
+    val serverStartTime: Long? = null,
+    val uptimeFormatted: String = "00:00:00",
     val totalRequests: Long = 0,
     val activeConnections: Int = 0,
     val serverErrorMessage: String? = null,
-    val isTesting: Boolean = false,
-    val testPrompt: String = "",
-    val testResponseText: String = "",
-    val testResponseImages: List<String> = emptyList(),
+
+    // Security & Auth
+    val isAuthenticated: Boolean = false,
+    val isBatteryUnrestricted: Boolean = false,
     val autoStartOnBoot: Boolean = false,
-    val oemTips: String = ""
-)
+    val oemTips: String = "",
+
+    // Disk Cache & Storage
+    val cacheFilesCount: Int = 0,
+    val cacheSizeBytes: Long = 0L,
+
+    // Traffic Monitor
+    val trafficLogs: List<TrafficLog> = emptyList(),
+    val trafficFilter: TrafficFilter = TrafficFilter.ALL,
+
+    // Playground Sandbox
+    val selectedModel: String = "gemini-3-pro",
+    val promptInput: String = "請用繁體中文自我介紹，並告訴我你支援什麼功能。",
+    val playgroundMessages: List<PlaygroundChatMessage> = emptyList(),
+    val isGenerating: Boolean = false
+) {
+    val cacheSizeFormatted: String
+        get() = when {
+            cacheSizeBytes < 1024 -> "$cacheSizeBytes B"
+            cacheSizeBytes < 1024 * 1024 -> String.format("%.1f KB", cacheSizeBytes / 1024.0)
+            else -> String.format("%.1f MB", cacheSizeBytes / (1024.0 * 1024.0))
+        }
+
+    val filteredLogs: List<TrafficLog>
+        get() = when (trafficFilter) {
+            TrafficFilter.ALL -> trafficLogs
+            TrafficFilter.STREAM_ONLY -> trafficLogs.filter { it.path.contains("/stream") }
+            TrafficFilter.ERROR_ONLY -> trafficLogs.filter { it.isError }
+        }
+}

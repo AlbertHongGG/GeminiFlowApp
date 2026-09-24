@@ -3,6 +3,7 @@ package com.geminiflow.app.server
 import android.util.Base64
 import android.util.Log
 import com.geminiflow.app.data.storage.ImageStorageManager
+import com.geminiflow.app.data.storage.TrafficLogManager
 import com.geminiflow.app.domain.model.AuthenticationRequiredException
 import com.geminiflow.app.domain.model.ChatRequest
 import com.geminiflow.app.domain.model.ImagePayload
@@ -10,6 +11,7 @@ import com.geminiflow.app.domain.model.NetworkException
 import com.geminiflow.app.domain.model.PayloadException
 import com.geminiflow.app.domain.model.ServerStatus
 import com.geminiflow.app.domain.model.TokenExpiredException
+import com.geminiflow.app.domain.model.TrafficLog
 import com.geminiflow.app.domain.usecase.StreamChatUseCase
 import com.geminiflow.app.server.dto.ChatRequestDto
 import com.geminiflow.app.server.dto.ChatResponseDto
@@ -46,7 +48,8 @@ import java.util.concurrent.atomic.AtomicLong
 
 class KtorLocalServer(
     private val streamChatUseCase: StreamChatUseCase,
-    private val imageStorageManager: ImageStorageManager
+    private val imageStorageManager: ImageStorageManager,
+    private val trafficLogManager: TrafficLogManager
 ) {
     companion object {
         private const val TAG = "KtorLocalServer"
@@ -97,30 +100,78 @@ class KtorLocalServer(
 
                 routing {
                     get("/health") {
+                        val t0 = System.currentTimeMillis()
+                        val clientIp = call.request.local.remoteHost
                         call.respond(HttpStatusCode.OK, HealthResponseDto(ok = true))
+                        trafficLogManager.record(
+                            TrafficLog(
+                                method = "GET",
+                                path = "/health",
+                                statusCode = 200,
+                                durationMs = System.currentTimeMillis() - t0,
+                                clientIp = clientIp,
+                                responseSummary = "ok: true"
+                            )
+                        )
                     }
 
                     get("/images/{filename}") {
+                        val t0 = System.currentTimeMillis()
+                        val clientIp = call.request.local.remoteHost
                         val filename = call.parameters["filename"]
                         if (filename.isNullOrBlank()) {
                             call.respond(HttpStatusCode.BadRequest, ErrorResponseDto("缺少圖片名稱"))
+                            trafficLogManager.record(
+                                TrafficLog(
+                                    method = "GET",
+                                    path = "/images/empty",
+                                    statusCode = 400,
+                                    durationMs = System.currentTimeMillis() - t0,
+                                    clientIp = clientIp,
+                                    responseSummary = "缺少圖片名稱"
+                                )
+                            )
                             return@get
                         }
                         val imageFile = imageStorageManager.getImageFile(filename)
                         if (imageFile != null && imageFile.exists()) {
                             call.respondFile(imageFile)
+                            trafficLogManager.record(
+                                TrafficLog(
+                                    method = "GET",
+                                    path = "/images/$filename",
+                                    statusCode = 200,
+                                    durationMs = System.currentTimeMillis() - t0,
+                                    clientIp = clientIp,
+                                    responseSummary = "Image sent (${imageFile.length()} bytes)"
+                                )
+                            )
                         } else {
                             call.respond(HttpStatusCode.NotFound, ErrorResponseDto("找不到該圖片"))
+                            trafficLogManager.record(
+                                TrafficLog(
+                                    method = "GET",
+                                    path = "/images/$filename",
+                                    statusCode = 404,
+                                    durationMs = System.currentTimeMillis() - t0,
+                                    clientIp = clientIp,
+                                    responseSummary = "找不到該圖片"
+                                )
+                            )
                         }
                     }
 
                     post("/chat") {
+                        val t0 = System.currentTimeMillis()
+                        val clientIp = call.request.local.remoteHost
                         totalRequests.incrementAndGet()
                         activeConnections.incrementAndGet()
                         updateStatusCounts()
 
+                        var promptSummary: String? = null
                         try {
                             val requestDto = call.receive<ChatRequestDto>()
+                            promptSummary = requestDto.prompt.take(120)
                             val domainRequest = mapToDomainRequest(requestDto)
 
                             val textParts = StringBuilder()
@@ -142,21 +193,38 @@ class KtorLocalServer(
                                 }
                             }
 
+                            val fullText = textParts.toString()
                             call.respond(
                                 HttpStatusCode.OK,
-                                ChatResponseDto(text = textParts.toString(), images = imagesSaved)
+                                ChatResponseDto(text = fullText, images = imagesSaved)
+                            )
+                            trafficLogManager.record(
+                                TrafficLog(
+                                    method = "POST",
+                                    path = "/chat",
+                                    statusCode = 200,
+                                    durationMs = System.currentTimeMillis() - t0,
+                                    clientIp = clientIp,
+                                    promptSummary = promptSummary,
+                                    responseSummary = fullText.take(120)
+                                )
                             )
                         } catch (e: AuthenticationRequiredException) {
                             call.respond(HttpStatusCode.Unauthorized, ErrorResponseDto(e.message ?: "未授權"))
+                            recordErrorTraffic("POST", "/chat", 401, t0, clientIp, promptSummary, e.message)
                         } catch (e: TokenExpiredException) {
                             call.respond(HttpStatusCode.Unauthorized, ErrorResponseDto(e.message ?: "憑證過期"))
+                            recordErrorTraffic("POST", "/chat", 401, t0, clientIp, promptSummary, e.message)
                         } catch (e: NetworkException) {
                             call.respond(HttpStatusCode.BadGateway, ErrorResponseDto(e.message ?: "網路連線異常"))
+                            recordErrorTraffic("POST", "/chat", 502, t0, clientIp, promptSummary, e.message)
                         } catch (e: PayloadException) {
                             call.respond(HttpStatusCode.UnprocessableEntity, ErrorResponseDto(e.message ?: "請求內容錯誤"))
+                            recordErrorTraffic("POST", "/chat", 422, t0, clientIp, promptSummary, e.message)
                         } catch (e: Exception) {
                             Log.e(TAG, "Error handling /chat request: ${e.message}", e)
                             call.respond(HttpStatusCode.InternalServerError, ErrorResponseDto(e.message ?: "伺服器內部錯誤"))
+                            recordErrorTraffic("POST", "/chat", 500, t0, clientIp, promptSummary, e.message)
                         } finally {
                             activeConnections.decrementAndGet()
                             updateStatusCounts()
@@ -164,12 +232,16 @@ class KtorLocalServer(
                     }
 
                     post("/stream") {
+                        val t0 = System.currentTimeMillis()
+                        val clientIp = call.request.local.remoteHost
                         totalRequests.incrementAndGet()
                         activeConnections.incrementAndGet()
                         updateStatusCounts()
 
+                        var promptSummary: String? = null
                         try {
                             val requestDto = call.receive<ChatRequestDto>()
+                            promptSummary = requestDto.prompt.take(120)
                             val domainRequest = mapToDomainRequest(requestDto)
 
                             val scheme = "http"
@@ -210,6 +282,17 @@ class KtorLocalServer(
 
                                     write("event: done\ndata: {}\n\n")
                                     flush()
+                                    trafficLogManager.record(
+                                        TrafficLog(
+                                            method = "POST",
+                                            path = "/stream",
+                                            statusCode = 200,
+                                            durationMs = System.currentTimeMillis() - t0,
+                                            clientIp = clientIp,
+                                            promptSummary = promptSummary,
+                                            responseSummary = "SSE Stream Complete"
+                                        )
+                                    )
                                 } catch (e: AuthenticationRequiredException) {
                                     val err = buildJsonObject {
                                         put("error", e.message ?: "未授權")
@@ -217,6 +300,7 @@ class KtorLocalServer(
                                     }.toString()
                                     write("event: error\ndata: $err\n\n")
                                     flush()
+                                    recordErrorTraffic("POST", "/stream", 401, t0, clientIp, promptSummary, e.message)
                                 } catch (e: Exception) {
                                     val err = buildJsonObject {
                                         put("error", e.message ?: "串流處理錯誤")
@@ -224,11 +308,13 @@ class KtorLocalServer(
                                     }.toString()
                                     write("event: error\ndata: $err\n\n")
                                     flush()
+                                    recordErrorTraffic("POST", "/stream", 500, t0, clientIp, promptSummary, e.message)
                                 }
                             }
                         } catch (e: Exception) {
                             Log.e(TAG, "Error preparing /stream request: ${e.message}", e)
                             call.respond(HttpStatusCode.BadRequest, ErrorResponseDto("無效的請求格式: ${e.message}"))
+                            recordErrorTraffic("POST", "/stream", 400, t0, clientIp, promptSummary, e.message)
                         } finally {
                             activeConnections.decrementAndGet()
                             updateStatusCounts()
@@ -243,14 +329,16 @@ class KtorLocalServer(
                 isRunning = true,
                 host = host,
                 port = port,
-                errorMessage = null
+                errorMessage = null,
+                startTime = System.currentTimeMillis()
             )
             Log.i(TAG, "Ktor Embedded Server started on http://$host:$port")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start Ktor server: ${e.message}", e)
             _status.value = _status.value.copy(
                 isRunning = false,
-                errorMessage = e.message
+                errorMessage = e.message,
+                startTime = null
             )
             throw e
         }
@@ -263,10 +351,33 @@ class KtorLocalServer(
             serverEngine = null
             _status.value = _status.value.copy(
                 isRunning = false,
-                activeConnections = 0
+                activeConnections = 0,
+                startTime = null
             )
             Log.i(TAG, "Ktor Embedded Server stopped.")
         }
+    }
+
+    private fun recordErrorTraffic(
+        method: String,
+        path: String,
+        statusCode: Int,
+        startTime: Long,
+        clientIp: String,
+        prompt: String?,
+        error: String?
+    ) {
+        trafficLogManager.record(
+            TrafficLog(
+                method = method,
+                path = path,
+                statusCode = statusCode,
+                durationMs = System.currentTimeMillis() - startTime,
+                clientIp = clientIp,
+                promptSummary = prompt,
+                responseSummary = error ?: "HTTP $statusCode"
+            )
+        )
     }
 
     private fun updateStatusCounts() {

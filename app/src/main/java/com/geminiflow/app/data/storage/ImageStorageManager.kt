@@ -92,4 +92,11 @@ class ImageStorageManager(
     fun getAllImages(): List<File> {
         return imagesDir.listFiles()?.filter { it.isFile }?.sortedByDescending { it.lastModified() } ?: emptyList()
     }
+
+    fun getCacheStats(): Pair<Int, Long> {
+        val files = imagesDir.listFiles()?.filter { it.isFile } ?: emptyList()
+        val count = files.size
+        val sizeBytes = files.sumOf { it.length() }
+        return Pair(count, sizeBytes)
+    }
 }
