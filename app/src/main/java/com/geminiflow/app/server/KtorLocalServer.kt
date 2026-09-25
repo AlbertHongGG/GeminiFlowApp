@@ -172,6 +172,22 @@ class KtorLocalServer(
                         try {
                             val requestDto = call.receive<ChatRequestDto>()
                             promptSummary = requestDto.prompt.take(120)
+                            if (requestDto.model.isNullOrBlank()) {
+                                call.respond(
+                                    HttpStatusCode.BadRequest,
+                                    ErrorResponseDto("缺少模型參數 (model)，呼叫端必須明確指定欲使用的模型")
+                                )
+                                recordErrorTraffic(
+                                    "POST",
+                                    "/chat",
+                                    400,
+                                    t0,
+                                    clientIp,
+                                    promptSummary,
+                                    "缺少模型參數 (model)"
+                                )
+                                return@post
+                            }
                             val domainRequest = mapToDomainRequest(requestDto)
 
                             val textParts = StringBuilder()
@@ -242,6 +258,22 @@ class KtorLocalServer(
                         try {
                             val requestDto = call.receive<ChatRequestDto>()
                             promptSummary = requestDto.prompt.take(120)
+                            if (requestDto.model.isNullOrBlank()) {
+                                call.respond(
+                                    HttpStatusCode.BadRequest,
+                                    ErrorResponseDto("缺少模型參數 (model)，呼叫端必須明確指定欲使用的模型")
+                                )
+                                recordErrorTraffic(
+                                    "POST",
+                                    "/stream",
+                                    400,
+                                    t0,
+                                    clientIp,
+                                    promptSummary,
+                                    "缺少模型參數 (model)"
+                                )
+                                return@post
+                            }
                             val domainRequest = mapToDomainRequest(requestDto)
 
                             val scheme = "http"
@@ -388,6 +420,9 @@ class KtorLocalServer(
     }
 
     private fun mapToDomainRequest(dto: ChatRequestDto): ChatRequest {
+        val model = dto.model?.takeIf { it.isNotBlank() }
+            ?: throw PayloadException("缺少模型參數 (model)，呼叫端必須明確指定欲使用的模型")
+
         val imagePayloads = dto.images.mapIndexed { index, rawStr ->
             decodeBase64Image(rawStr, index)
         }
@@ -395,7 +430,7 @@ class KtorLocalServer(
         return ChatRequest(
             prompt = dto.prompt,
             systemPrompt = dto.systemPrompt,
-            model = dto.model,
+            model = model,
             language = dto.language,
             images = imagePayloads,
             sessionId = dto.sessionId,

@@ -2,34 +2,62 @@ package com.geminiflow.app.presentation.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Canvas & Surfaces (Pure Light Mode)
-val BgCanvas = Color(0xFFF8FAFC)        // Slate-50 冷白背景
-val SurfaceCard = Color(0xFFFFFFFF)     // 純白陶瓷卡片表面
-val SurfaceElevated = Color(0xFFF1F5F9) // Slate-100 輸入框與輔助底色
-val SurfaceHighlight = Color(0xFFE2E8F0)// Slate-200
+/**
+ * AppColors: Directly ported from LensWise (lib/core/theme/app_colors.dart)
+ */
+object AppColors {
+    // Backgrounds
+    val backgroundLight = Color(0xFFF5F7FA) // Soft Grey-White
+    val backgroundDark = Color(0xFF0F111A)  // Deep Void Blue
 
-// Borders
-val BorderLight = Color(0xFFE2E8F0)     // Slate-200 1dp 精緻微邊框
-val BorderFocused = Color(0xFFCBD5E1)   // Slate-300
+    val surfaceLight = Color(0xFFFFFFFF)    // Pure White
+    val surfaceDark = Color(0xFF1E2130)
 
-// Typography
-val TextPrimary = Color(0xFF0F172A)     // Slate-900 高對比深邃主文字
-val TextSecondary = Color(0xFF64748B)   // Slate-500 中灰副文字
-val TextMuted = Color(0xFF94A3B8)       // Slate-400 淺灰輔助文字
+    // Accents
+    val primary = Color(0xFF475569)         // Muted Slate 600 (LensWise signature primary)
+    val secondary = Color(0xFF94A3B8)       // Slate 400
 
-// Semantic Accents (Flat, No Solid Gradients)
-val AccentEmerald = Color(0xFF059669)       // 翡翠綠 (Online / 200 OK / 成功)
-val AccentEmeraldLight = Color(0xFFECFDF5)  // 翡翠綠淺底
-val AccentBlue = Color(0xFF2563EB)          // 皇家藍 (Brand / Action / Highlight)
-val AccentBlueLight = Color(0xFFEFF6FF)     // 皇家藍淺底
-val AccentAmber = Color(0xFFD97706)         // 琥珀暖橙 (Warning / 待設定)
-val AccentAmberLight = Color(0xFFFFFBEB)    // 琥珀淺底
-val AccentRose = Color(0xFFDC2626)          // 石榴紅 (Offline / 錯誤 / 危險操作)
-val AccentRoseLight = Color(0xFFFEF2F2)     // 石榴紅淺底
+    // Text
+    val textPrimaryLight = Color(0xFF1A1D2B)
+    val textSecondaryLight = Color(0xFF6E768C)
 
-// Backward Compatibility Aliases
-val BluePrimary = AccentBlue
-val BlueSecondary = Color(0xFF3B82F6)
+    val textPrimaryDark = Color(0xFFFFFFFF)
+    val textSecondaryDark = Color(0xFFAAB2C8)
+
+    // Semantic Accents
+    val success = Color(0xFF10B981)         // Emerald
+    val danger = Color(0xFFEF4444)          // Red Accent
+    val warning = Color(0xFFF59E0B)         // Amber
+    val borderLight = Color(0x0F000000)     // Black 6% subtle border
+    val divider = Color(0x0D000000)         // Black 5% indented divider
+}
+
+// Aliases for unified consumption
+val BgCanvas = AppColors.backgroundLight
+val SurfaceCard = AppColors.surfaceLight
+val SurfaceElevated = Color(0xFFF1F5F9)
+
+val AccentPrimary = AppColors.primary
+val AccentSecondary = AppColors.secondary
+val AccentBlue = AppColors.primary
+val AccentBlueLight = AppColors.primary.copy(alpha = 0.1f)
+val AccentEmerald = AppColors.success
+val AccentEmeraldLight = AppColors.success.copy(alpha = 0.1f)
+val AccentRose = AppColors.danger
+val AccentRoseLight = AppColors.danger.copy(alpha = 0.1f)
+val AccentAmber = AppColors.warning
+val AccentAmberLight = AppColors.warning.copy(alpha = 0.1f)
+
+val BorderLight = AppColors.borderLight
+val BorderFocused = AppColors.secondary
+
+val TextPrimary = AppColors.textPrimaryLight
+val TextSecondary = AppColors.textSecondaryLight
+val TextMuted = AppColors.secondary
+
+// Legacy compatibility
+val BluePrimary = AccentPrimary
+val BlueSecondary = AccentSecondary
 val BlueTertiary = Color(0xFF60A5FA)
 val GreenSuccess = AccentEmerald
 val RedError = AccentRose

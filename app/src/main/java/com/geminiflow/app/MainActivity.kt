@@ -33,15 +33,15 @@ import androidx.core.content.ContextCompat
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.geminiflow.app.presentation.components.GfFloatingNavBar
-import com.geminiflow.app.presentation.components.NavigationTab
+import com.geminiflow.app.presentation.components.AnimatedFloatingTabBar
+import com.geminiflow.app.presentation.components.AppTab
 import com.geminiflow.app.presentation.theme.GeminiFlowTheme
+import com.geminiflow.app.presentation.ui.AiLogViewerScreen
 import com.geminiflow.app.presentation.ui.BatteryGuideBottomSheet
 import com.geminiflow.app.presentation.ui.GoogleAuthScreen
 import com.geminiflow.app.presentation.ui.PlaygroundScreen
 import com.geminiflow.app.presentation.ui.ServerHubScreen
-import com.geminiflow.app.presentation.ui.SettingsScreen
-import com.geminiflow.app.presentation.ui.TrafficScreen
+import com.geminiflow.app.presentation.ui.SettingsPage
 import com.geminiflow.app.presentation.viewmodel.MainViewModel
 
 class MainActivity : ComponentActivity() {
@@ -89,6 +89,7 @@ class MainActivity : ComponentActivity() {
 object Destinations {
     const val MAIN = "main"
     const val GOOGLE_AUTH = "google_auth"
+    const val AI_LOGS = "ai_logs"
 }
 
 @Composable
@@ -110,7 +111,8 @@ fun AppNavigation(
             MainContainerScreen(
                 viewModel = viewModel,
                 activity = activity,
-                onNavigateToLogin = { navController.navigate(Destinations.GOOGLE_AUTH) }
+                onNavigateToLogin = { navController.navigate(Destinations.GOOGLE_AUTH) },
+                onNavigateToAiLogs = { navController.navigate(Destinations.AI_LOGS) }
             )
         }
 
@@ -123,6 +125,17 @@ fun AppNavigation(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
+
+        composable(
+            route = Destinations.AI_LOGS,
+            enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)) },
+            popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)) }
+        ) {
+            AiLogViewerScreen(
+                viewModel = viewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
     }
 }
 
@@ -131,9 +144,10 @@ fun AppNavigation(
 fun MainContainerScreen(
     viewModel: MainViewModel,
     activity: ComponentActivity,
-    onNavigateToLogin: () -> Unit
+    onNavigateToLogin: () -> Unit,
+    onNavigateToAiLogs: () -> Unit
 ) {
-    var selectedTab by rememberSaveable { mutableStateOf(NavigationTab.HUB) }
+    var selectedTab by rememberSaveable { mutableStateOf(AppTab.DASHBOARD) }
     var showBatteryBottomSheet by rememberSaveable { mutableStateOf(false) }
 
     val uiState by viewModel.uiState.collectAsState()
@@ -156,46 +170,42 @@ fun MainContainerScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Main Viewport with animated transition
+        // Main Viewport with animated transition between the 3 core screens
         AnimatedContent(
             targetState = selectedTab,
             transitionSpec = {
                 (fadeIn(animationSpec = tween(220)) + scaleIn(initialScale = 0.98f, animationSpec = tween(220)))
                     .togetherWith(fadeOut(animationSpec = tween(150)))
             },
-            label = "tabContent"
+            label = "threeTabsContent"
         ) { tab ->
             when (tab) {
-                NavigationTab.HUB -> {
+                AppTab.DASHBOARD -> {
                     ServerHubScreen(
                         viewModel = viewModel,
                         onNavigateToLogin = onNavigateToLogin,
                         onOpenBatteryGuide = { showBatteryBottomSheet = true },
-                        onNavigateToSettings = { selectedTab = NavigationTab.SETTINGS }
+                        onNavigateToSettings = { selectedTab = AppTab.SETTINGS }
                     )
                 }
-                NavigationTab.PLAYGROUND -> {
+                AppTab.SANDBOX -> {
                     PlaygroundScreen(
                         viewModel = viewModel
                     )
                 }
-                NavigationTab.TRAFFIC -> {
-                    TrafficScreen(
-                        viewModel = viewModel
-                    )
-                }
-                NavigationTab.SETTINGS -> {
-                    SettingsScreen(
+                AppTab.SETTINGS -> {
+                    SettingsPage(
                         viewModel = viewModel,
                         onNavigateToLogin = onNavigateToLogin,
-                        onOpenBatteryGuide = { showBatteryBottomSheet = true }
+                        onOpenBatteryGuide = { showBatteryBottomSheet = true },
+                        onNavigateToAiLogs = onNavigateToAiLogs
                     )
                 }
             }
         }
 
-        // Floating Pill Dock at bottom
-        GfFloatingNavBar(
+        // Yoyu-style Centered Animated Floating Tab Bar at bottom
+        AnimatedFloatingTabBar(
             selectedTab = selectedTab,
             onTabSelected = { selectedTab = it },
             modifier = Modifier.align(Alignment.BottomCenter)

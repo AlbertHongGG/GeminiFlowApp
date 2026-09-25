@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
 data class ChatRequestDto(
     val prompt: String,
     @SerialName("system_prompt") val systemPrompt: String? = null,
-    val model: String = "gemini-3-pro",
+    val model: String? = null,
     val language: String = "zh-TW",
     val images: List<String> = emptyList(), // Base64 encoded or data URI strings
     @SerialName("session_id") val sessionId: String? = null,

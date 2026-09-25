@@ -195,7 +195,7 @@ class BatteryOptimizationHelper(private val context: Context) {
             brand.contains("vivo") || brand.contains("iqoo") ->
                 "vivo / iQOO (OriginOS / FuntouchOS)：\n1. 請至「i管家 > 權限管理 > 自啟動」勾選允許\n2. 在「高後台耗電」中允許 GeminiFlow 持續運行。"
             else ->
-                "通用 Android 建議：\n1. 電池最佳化設置為「無限制 (Unrestricted)」\n2. 允許「後台數據」與「無限制數據使用」\n3. 在最近任務清單中鎖定此應用程式卡片。"
+                "通用 Android 建議：\n1. 電池最佳化設置為「無限制」\n2. 允許「後台數據」與「無限制數據使用」\n3. 在最近任務清單中鎖定此應用程式卡片。"
         }
     }
 }
