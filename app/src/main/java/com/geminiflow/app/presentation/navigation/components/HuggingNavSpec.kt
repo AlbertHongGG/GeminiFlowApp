@@ -16,14 +16,14 @@ data class HuggingNavSpec(
     val containerCornerRadius: Dp = 32.dp,
     val elevation: Dp = 12.dp,
 
-    // 晶透毛玻璃色彩 (70% 純白晶透無髒灰感)
+    // 晶透白瓷高階材質 (88% 純白晶透，無髒灰感，零 GPU 記憶體風暴)
     val blurRadius: Dp = 24.dp,
-    val glassBackgroundColor: Color = Color.White.copy(alpha = 0.70f),
-    val fallbackBackgroundColor: Color = Color.White.copy(alpha = 0.92f),
-    val borderColor: Color = Color.Black.copy(alpha = 0.06f),
+    val glassBackgroundColor: Color = Color.White.copy(alpha = 0.82f),
+    val fallbackBackgroundColor: Color = Color.White.copy(alpha = 0.88f),
+    val borderColor: Color = Color.Black.copy(alpha = 0.05f),
     val borderWidth: Dp = 1.dp,
-    val ambientShadowColor: Color = Color.Black.copy(alpha = 0.05f),
-    val spotShadowColor: Color = Color.Black.copy(alpha = 0.10f),
+    val ambientShadowColor: Color = Color.Black.copy(alpha = 0.04f),
+    val spotShadowColor: Color = Color.Black.copy(alpha = 0.08f),
 
     // 圓形按鈕規格 (嚴格 CircleShape，直徑 50dp，圖標 24dp)
     val itemDiameter: Dp = 50.dp,
@@ -39,9 +39,9 @@ data class HuggingNavSpec(
     val inactiveCircleColor: Color = Color.Transparent,
 
     // 滑動指示器彈簧物理參數與動畫規格
-    val springDampingRatio: Float = 0.82f,
+    val springDampingRatio: Float = 0.85f,
     val springStiffness: Float = Spring.StiffnessMediumLow,
-    val iconColorAnimationMillis: Int = 220
+    val iconColorAnimationMillis: Int = 200
 ) {
     /**
      * 計算第 index 個分頁的滑動指示器在膠囊內容區的水平 X 偏移量。

@@ -39,7 +39,7 @@ class HuggingNavSpecTest {
         assertEquals(0.dp, spec.calculateIndicatorOffset(-1))
 
         // 彈簧阻尼係數驗證
-        assertEquals(0.82f, spec.springDampingRatio, 0.001f)
+        assertEquals(0.85f, spec.springDampingRatio, 0.001f)
     }
 
     @Test
@@ -52,8 +52,9 @@ class HuggingNavSpecTest {
         assertEquals(Color(0xFF64748B), spec.inactiveIconColor) // Slate-500
         assertEquals(Color.Transparent, spec.inactiveCircleColor)
 
-        // 70% 高透純白毛玻璃
-        assertEquals(0.70f, spec.glassBackgroundColor.alpha, 0.01f)
+        // 晶透白瓷材質 (高透光，零 GPU 記憶體風暴)
+        assertEquals(0.82f, spec.glassBackgroundColor.alpha, 0.01f)
+        assertEquals(0.88f, spec.fallbackBackgroundColor.alpha, 0.01f)
         assertEquals(24.dp, spec.blurRadius)
         assertTrue(spec.activeCircleElevation > 0.dp)
     }

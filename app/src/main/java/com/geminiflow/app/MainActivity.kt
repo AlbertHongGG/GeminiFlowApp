@@ -12,9 +12,6 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -29,14 +26,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import com.geminiflow.app.presentation.navigation.components.HuggingCapsuleNavBar
+import com.geminiflow.app.presentation.navigation.components.NavTabTransitionContainer
 import com.geminiflow.app.presentation.navigation.components.CupertinoSwipeBackContainer
 import com.geminiflow.app.presentation.navigation.components.LocalCupertinoNavigator
 import com.geminiflow.app.presentation.navigation.model.AppRoute
 import com.geminiflow.app.presentation.navigation.model.AppTab
 import com.geminiflow.app.presentation.notification.GlobalNotificationOverlay
 import com.geminiflow.app.presentation.theme.GeminiFlowTheme
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.haze
 import com.geminiflow.app.presentation.ui.AiLogViewerScreen
 import com.geminiflow.app.presentation.ui.ApiLogDetailScreen
 import com.geminiflow.app.presentation.ui.BatteryGuideBottomSheet
@@ -155,23 +151,6 @@ fun MainContainerScreen(
 ) {
     var showBatteryBottomSheet by rememberSaveable { mutableStateOf(false) }
     val uiState by viewModel.uiState.collectAsState()
-    val hazeState = remember { HazeState() }
-
-    val pagerState = rememberPagerState(
-        initialPage = uiState.activeTab.ordinal,
-        pageCount = { AppTab.entries.size }
-    )
-
-    // 監聽 ViewModel 的 activeTab 變更，驅動 HorizontalPager 進行硬體加速平滑滾動
-    LaunchedEffect(uiState.activeTab) {
-        if (pagerState.currentPage != uiState.activeTab.ordinal) {
-            pagerState.animateScrollToPage(
-                page = uiState.activeTab.ordinal,
-                animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing)
-            )
-        }
-    }
-
     if (showBatteryBottomSheet) {
         BatteryGuideBottomSheet(
             isUnrestricted = uiState.isBatteryUnrestricted,
@@ -186,15 +165,12 @@ fun MainContainerScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // 1. 三大核心頁面內容層：採用原生硬體加速 HorizontalPager，徹底根除透底閃爍與重組卡頓
-        HorizontalPager(
-            state = pagerState,
-            userScrollEnabled = false,
-            modifier = Modifier
-                .fillMaxSize()
-                .haze(hazeState)
-        ) { pageIndex ->
-            when (AppTab.entries[pageIndex]) {
+        // 1. 三大核心頁面內容層：採用點對點定向視差平滑分頁容器，徹底根除跨頁連鎖重組與全螢幕 Haze 記憶體風暴
+        NavTabTransitionContainer(
+            activeTab = uiState.activeTab,
+            modifier = Modifier.fillMaxSize()
+        ) { tab ->
+            when (tab) {
                 AppTab.DASHBOARD -> {
                     ServerHubScreen(
                         viewModel = viewModel,
@@ -220,11 +196,10 @@ fun MainContainerScreen(
             }
         }
 
-        // 2. 緊緻包裹正圓毛玻璃導航欄 (Apple VisionOS 晶透白瓷浮島風格)
+        // 2. 緊緻包裹正圓晶透白瓷導航欄 (Apple VisionOS 晶透白瓷浮島風格，單一實體滑動圓盤)
         HuggingCapsuleNavBar(
             selectedTab = uiState.activeTab,
             onTabSelected = { viewModel.selectTab(it) },
-            hazeState = hazeState,
             modifier = Modifier.align(Alignment.BottomCenter)
         )
     }
