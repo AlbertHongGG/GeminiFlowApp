@@ -22,8 +22,24 @@ class HuggingNavSpecTest {
         assertEquals(32.dp, spec.containerCornerRadius)
 
         // 計算 3 個項目下的膠囊理論總寬度: 8 + 50 + 14 + 50 + 14 + 50 + 8 = 194.dp
-        val estimatedTotalWidth = spec.horizontalPadding * 2 + spec.itemDiameter * 3 + spec.itemSpacing * 2
+        val estimatedTotalWidth = spec.calculateEstimatedTotalWidth(3)
         assertEquals(194.dp, estimatedTotalWidth)
+    }
+
+    @Test
+    fun defaultSpec_verifiesSlidingIndicatorOffsets() {
+        val spec = HuggingNavSpec()
+
+        // 單一實體滑動圓盤的軌道水平偏移計算
+        assertEquals(0.dp, spec.calculateIndicatorOffset(0))
+        assertEquals(64.dp, spec.calculateIndicatorOffset(1)) // 50dp + 14dp
+        assertEquals(128.dp, spec.calculateIndicatorOffset(2)) // (50dp + 14dp) * 2
+
+        // 負數安全保護
+        assertEquals(0.dp, spec.calculateIndicatorOffset(-1))
+
+        // 彈簧阻尼係數驗證
+        assertEquals(0.82f, spec.springDampingRatio, 0.001f)
     }
 
     @Test

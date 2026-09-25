@@ -250,6 +250,8 @@ fun SettingsPage(
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(96.dp)) // 預留底部導航欄空間
         }
     }
 }

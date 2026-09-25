@@ -8,10 +8,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -154,6 +157,21 @@ fun MainContainerScreen(
     val uiState by viewModel.uiState.collectAsState()
     val hazeState = remember { HazeState() }
 
+    val pagerState = rememberPagerState(
+        initialPage = uiState.activeTab.ordinal,
+        pageCount = { AppTab.entries.size }
+    )
+
+    // 監聽 ViewModel 的 activeTab 變更，驅動 HorizontalPager 進行硬體加速平滑滾動
+    LaunchedEffect(uiState.activeTab) {
+        if (pagerState.currentPage != uiState.activeTab.ordinal) {
+            pagerState.animateScrollToPage(
+                page = uiState.activeTab.ordinal,
+                animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing)
+            )
+        }
+    }
+
     if (showBatteryBottomSheet) {
         BatteryGuideBottomSheet(
             isUnrestricted = uiState.isBatteryUnrestricted,
@@ -168,40 +186,36 @@ fun MainContainerScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // 1. 三大核心頁面內容層：作為 Haze 毛玻璃取樣來源，採用高效輕量 Crossfade 杜絕重組掉幀
-        Box(
+        // 1. 三大核心頁面內容層：採用原生硬體加速 HorizontalPager，徹底根除透底閃爍與重組卡頓
+        HorizontalPager(
+            state = pagerState,
+            userScrollEnabled = false,
             modifier = Modifier
                 .fillMaxSize()
                 .haze(hazeState)
-        ) {
-            Crossfade(
-                targetState = uiState.activeTab,
-                animationSpec = tween(180),
-                label = "threeTabsContent"
-            ) { tab ->
-                when (tab) {
-                    AppTab.DASHBOARD -> {
-                        ServerHubScreen(
-                            viewModel = viewModel,
-                            onNavigateToLogin = onNavigateToLogin,
-                            onOpenBatteryGuide = { showBatteryBottomSheet = true },
-                            onNavigateToSettings = { viewModel.selectTab(AppTab.SETTINGS) }
-                        )
-                    }
-                    AppTab.SANDBOX -> {
-                        PlaygroundScreen(
-                            viewModel = viewModel
-                        )
-                    }
-                    AppTab.SETTINGS -> {
-                        SettingsPage(
-                            viewModel = viewModel,
-                            onNavigateToLogin = onNavigateToLogin,
-                            onOpenBatteryGuide = { showBatteryBottomSheet = true },
-                            onNavigateToAiLogs = onNavigateToAiLogs,
-                            onNavigateToNotificationLogs = onNavigateToNotificationLogs
-                        )
-                    }
+        ) { pageIndex ->
+            when (AppTab.entries[pageIndex]) {
+                AppTab.DASHBOARD -> {
+                    ServerHubScreen(
+                        viewModel = viewModel,
+                        onNavigateToLogin = onNavigateToLogin,
+                        onOpenBatteryGuide = { showBatteryBottomSheet = true },
+                        onNavigateToSettings = { viewModel.selectTab(AppTab.SETTINGS) }
+                    )
+                }
+                AppTab.SANDBOX -> {
+                    PlaygroundScreen(
+                        viewModel = viewModel
+                    )
+                }
+                AppTab.SETTINGS -> {
+                    SettingsPage(
+                        viewModel = viewModel,
+                        onNavigateToLogin = onNavigateToLogin,
+                        onOpenBatteryGuide = { showBatteryBottomSheet = true },
+                        onNavigateToAiLogs = onNavigateToAiLogs,
+                        onNavigateToNotificationLogs = onNavigateToNotificationLogs
+                    )
                 }
             }
         }

@@ -1,5 +1,6 @@
 package com.geminiflow.app.presentation.navigation.components
 
+import androidx.compose.animation.core.Spring
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -37,5 +38,23 @@ data class HuggingNavSpec(
     val inactiveIconColor: Color = Color(0xFF64748B), // Slate-500
     val inactiveCircleColor: Color = Color.Transparent,
 
-    val animationDurationMillis: Int = 200
-)
+    // 滑動指示器彈簧物理參數與動畫規格
+    val springDampingRatio: Float = 0.82f,
+    val springStiffness: Float = Spring.StiffnessMediumLow,
+    val iconColorAnimationMillis: Int = 220
+) {
+    /**
+     * 計算第 index 個分頁的滑動指示器在膠囊內容區的水平 X 偏移量。
+     */
+    fun calculateIndicatorOffset(index: Int): Dp {
+        return (itemDiameter + itemSpacing) * index.coerceAtLeast(0)
+    }
+
+    /**
+     * 計算膠囊理論總寬度。
+     */
+    fun calculateEstimatedTotalWidth(itemCount: Int): Dp {
+        if (itemCount <= 0) return horizontalPadding * 2
+        return horizontalPadding * 2 + itemDiameter * itemCount + itemSpacing * (itemCount - 1)
+    }
+}
