@@ -35,7 +35,6 @@ import com.geminiflow.app.GeminiFlowApplication
 import com.geminiflow.app.data.auth.browser.AuthBrowserConfig
 import com.geminiflow.app.data.auth.browser.CookieBridge
 import com.geminiflow.app.data.auth.browser.SecureAuthWebViewSetup
-import com.geminiflow.app.presentation.components.EdgeSwipeBackDetector
 import com.geminiflow.app.presentation.theme.AccentBlue
 import com.geminiflow.app.presentation.theme.BorderLight
 import com.geminiflow.app.presentation.theme.SurfaceCard
@@ -158,11 +157,5 @@ fun GoogleAuthScreen(
             }
         }
     }
-
-    // 最左邊緣右滑返回手勢監聽
-    EdgeSwipeBackDetector(
-        onNavigateBack = onNavigateBack,
-        modifier = Modifier.align(Alignment.CenterStart)
-    )
 }
 }

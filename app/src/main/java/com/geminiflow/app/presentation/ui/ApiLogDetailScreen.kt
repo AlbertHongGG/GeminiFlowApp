@@ -32,7 +32,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.geminiflow.app.presentation.components.EdgeSwipeBackDetector
 import com.geminiflow.app.presentation.components.ImmersiveScaffold
 import com.geminiflow.app.presentation.components.JsonTreeViewer
 import org.json.JSONObject
@@ -152,12 +151,6 @@ fun ApiLogDetailScreen(
                     Spacer(modifier = Modifier.height(48.dp))
                 }
             }
-
-            // 最左邊緣右滑返回手勢監聽
-            EdgeSwipeBackDetector(
-                onNavigateBack = onNavigateBack,
-                modifier = Modifier.align(Alignment.CenterStart)
-            )
         }
     }
 }

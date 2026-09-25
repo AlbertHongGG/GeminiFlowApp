@@ -13,8 +13,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,11 +28,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import com.geminiflow.app.presentation.components.AnimatedFloatingTabBar
 import com.geminiflow.app.presentation.components.AppTab
+import com.geminiflow.app.presentation.navigation.components.CupertinoSwipeBackContainer
+import com.geminiflow.app.presentation.navigation.components.LocalCupertinoNavigator
+import com.geminiflow.app.presentation.navigation.model.AppRoute
 import com.geminiflow.app.presentation.notification.GlobalNotificationOverlay
 import com.geminiflow.app.presentation.theme.GeminiFlowTheme
 import com.geminiflow.app.presentation.ui.AiLogViewerScreen
@@ -90,86 +88,56 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-object Destinations {
-    const val MAIN = "main"
-    const val GOOGLE_AUTH = "google_auth"
-    const val NOTIFICATION_LOGS = "notification_logs"
-    const val AI_LOGS = "ai_logs"
-    const val API_LOG_DETAIL = "api_log_detail"
-}
-
 @Composable
 fun AppNavigation(
     viewModel: MainViewModel,
     activity: ComponentActivity
 ) {
-    val navController = rememberNavController()
     val app = GeminiFlowApplication.instance
+    val uiState by viewModel.uiState.collectAsState()
 
-    NavHost(
-        navController = navController,
-        startDestination = Destinations.MAIN
-    ) {
-        composable(
-            route = Destinations.MAIN,
-            exitTransition = { slideOutHorizontally(targetOffsetX = { -it }, animationSpec = tween(300)) },
-            popEnterTransition = { slideInHorizontally(initialOffsetX = { -it }, animationSpec = tween(300)) }
-        ) {
-            MainContainerScreen(
-                viewModel = viewModel,
-                activity = activity,
-                onNavigateToLogin = { navController.navigate(Destinations.GOOGLE_AUTH) },
-                onNavigateToAiLogs = { navController.navigate(Destinations.AI_LOGS) },
-                onNavigateToNotificationLogs = { navController.navigate(Destinations.NOTIFICATION_LOGS) }
-            )
-        }
-
-        composable(
-            route = Destinations.GOOGLE_AUTH,
-            enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)) },
-            popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)) }
-        ) {
-            GoogleAuthScreen(
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-
-        composable(
-            route = Destinations.NOTIFICATION_LOGS,
-            enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)) },
-            popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)) }
-        ) {
-            SystemNotificationLogScreen(
-                logManager = app.notificationLogManager,
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-
-        composable(
-            route = Destinations.AI_LOGS,
-            enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)) },
-            popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)) }
-        ) {
-            AiLogViewerScreen(
-                apiLogManager = app.apiLogManager,
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToDetail = { rawJson ->
-                    navController.currentBackStackEntry?.savedStateHandle?.set("rawJson", rawJson)
-                    navController.navigate(Destinations.API_LOG_DETAIL)
-                }
-            )
-        }
-
-        composable(
-            route = Destinations.API_LOG_DETAIL,
-            enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)) },
-            popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)) }
-        ) {
-            val rawJson = navController.previousBackStackEntry?.savedStateHandle?.get<String>("rawJson") ?: "{}"
-            ApiLogDetailScreen(
-                rawJson = rawJson,
-                onNavigateBack = { navController.popBackStack() }
-            )
+    CupertinoSwipeBackContainer(
+        backStack = uiState.backStack,
+        onPushRoute = { route -> viewModel.pushRoute(route) },
+        onPopRoute = { viewModel.popRoute() }
+    ) { route ->
+        val navigator = LocalCupertinoNavigator.current
+        when (route) {
+            is AppRoute.Main -> {
+                MainContainerScreen(
+                    viewModel = viewModel,
+                    activity = activity,
+                    onNavigateToLogin = { navigator.push(AppRoute.GoogleAuth) },
+                    onNavigateToAiLogs = { navigator.push(AppRoute.AiLogs) },
+                    onNavigateToNotificationLogs = { navigator.push(AppRoute.NotificationLogs) }
+                )
+            }
+            is AppRoute.GoogleAuth -> {
+                GoogleAuthScreen(
+                    onNavigateBack = { navigator.pop() }
+                )
+            }
+            is AppRoute.NotificationLogs -> {
+                SystemNotificationLogScreen(
+                    logManager = app.notificationLogManager,
+                    onNavigateBack = { navigator.pop() }
+                )
+            }
+            is AppRoute.AiLogs -> {
+                AiLogViewerScreen(
+                    apiLogManager = app.apiLogManager,
+                    onNavigateBack = { navigator.pop() },
+                    onNavigateToDetail = { rawJson ->
+                        navigator.push(AppRoute.ApiLogDetail(rawJson))
+                    }
+                )
+            }
+            is AppRoute.ApiLogDetail -> {
+                ApiLogDetailScreen(
+                    rawJson = route.rawJson,
+                    onNavigateBack = { navigator.pop() }
+                )
+            }
         }
     }
 }
@@ -183,9 +151,7 @@ fun MainContainerScreen(
     onNavigateToAiLogs: () -> Unit,
     onNavigateToNotificationLogs: () -> Unit
 ) {
-    var selectedTab by rememberSaveable { mutableStateOf(AppTab.DASHBOARD) }
     var showBatteryBottomSheet by rememberSaveable { mutableStateOf(false) }
-
     val uiState by viewModel.uiState.collectAsState()
 
     if (showBatteryBottomSheet) {
@@ -202,9 +168,9 @@ fun MainContainerScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // 主畫面視圖：於三大核心頁面間切換
+        // 主畫面視圖：於三大核心頁面間切換 (SSOT: uiState.activeTab)
         AnimatedContent(
-            targetState = selectedTab,
+            targetState = uiState.activeTab,
             transitionSpec = {
                 (fadeIn(animationSpec = tween(220)) + scaleIn(initialScale = 0.98f, animationSpec = tween(220)))
                     .togetherWith(fadeOut(animationSpec = tween(150)))
@@ -217,7 +183,7 @@ fun MainContainerScreen(
                         viewModel = viewModel,
                         onNavigateToLogin = onNavigateToLogin,
                         onOpenBatteryGuide = { showBatteryBottomSheet = true },
-                        onNavigateToSettings = { selectedTab = AppTab.SETTINGS }
+                        onNavigateToSettings = { viewModel.selectTab(AppTab.SETTINGS) }
                     )
                 }
                 AppTab.SANDBOX -> {
@@ -237,10 +203,10 @@ fun MainContainerScreen(
             }
         }
 
-        // 底部浮動導航欄
+        // 底部浮動導航欄 (SSOT: uiState.activeTab)
         AnimatedFloatingTabBar(
-            selectedTab = selectedTab,
-            onTabSelected = { selectedTab = it },
+            selectedTab = uiState.activeTab,
+            onTabSelected = { viewModel.selectTab(it) },
             modifier = Modifier.align(Alignment.BottomCenter)
         )
     }

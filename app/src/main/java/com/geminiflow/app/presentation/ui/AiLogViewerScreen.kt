@@ -51,7 +51,6 @@ import com.geminiflow.app.data.storage.ApiLogManager
 import com.geminiflow.app.data.storage.ApiLogModel
 import com.geminiflow.app.presentation.components.ClearLogsDrawer
 import com.geminiflow.app.presentation.components.DragDropTrashContainer
-import com.geminiflow.app.presentation.components.EdgeSwipeBackDetector
 import com.geminiflow.app.presentation.components.FloatingTrashButton
 import com.geminiflow.app.presentation.components.ImmersiveScaffold
 import com.geminiflow.app.presentation.components.draggableToTrash
@@ -228,12 +227,6 @@ fun AiLogViewerScreen(
                     .onGloballyPositioned { coordinates ->
                         dragDropState.trashBoundsInWindow = coordinates.boundsInWindow()
                     }
-            )
-
-            // 最左邊緣右滑返回手勢監聽
-            EdgeSwipeBackDetector(
-                onNavigateBack = onNavigateBack,
-                modifier = Modifier.align(Alignment.CenterStart)
             )
         }
     }

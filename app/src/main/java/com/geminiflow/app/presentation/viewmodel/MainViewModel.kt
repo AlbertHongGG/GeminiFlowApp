@@ -127,6 +127,25 @@ class MainViewModel : ViewModel() {
     }
 
 
+    // 導航核心控制方法 (SSOT)
+    fun selectTab(tab: com.geminiflow.app.presentation.components.AppTab) {
+        _uiState.update { it.copy(activeTab = tab) }
+    }
+
+    fun pushRoute(route: com.geminiflow.app.presentation.navigation.model.AppRoute) {
+        _uiState.update { current ->
+            current.copy(backStack = current.backStack + route)
+        }
+    }
+
+    fun popRoute() {
+        _uiState.update { current ->
+            if (current.backStack.size > 1) {
+                current.copy(backStack = current.backStack.dropLast(1))
+            } else current
+        }
+    }
+
     fun setNotificationLoggingEnabled(enabled: Boolean) {
         notificationLogManager.setLoggingEnabled(enabled)
         _uiState.update { it.copy(isNotificationLoggingEnabled = enabled) }

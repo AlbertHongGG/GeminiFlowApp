@@ -4,7 +4,14 @@ import com.geminiflow.app.domain.model.PlaygroundChatMessage
 import com.geminiflow.app.domain.model.TrafficFilter
 import com.geminiflow.app.domain.model.TrafficLog
 
+import com.geminiflow.app.presentation.components.AppTab
+import com.geminiflow.app.presentation.navigation.model.AppRoute
+
 data class MainUiState(
+    // 全域導航與分頁狀態 (Single Source of Truth)
+    val activeTab: AppTab = AppTab.DASHBOARD,
+    val backStack: List<AppRoute> = listOf(AppRoute.Main),
+
     // 伺服器核心狀態
     val isServerRunning: Boolean = false,
     val serverHost: String = "127.0.0.1",
