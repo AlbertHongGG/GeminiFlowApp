@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -74,41 +73,34 @@ fun ImmersiveBottomSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Spacer(modifier = Modifier.size(48.dp))
+            if (trailingAction != null) {
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = title,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 2.sp,
+                        color = Color(0xFF64748B)
+                    )
 
+                    Box(
+                        modifier = Modifier.align(Alignment.CenterEnd)
+                    ) {
+                        trailingAction()
+                    }
+                }
+            } else {
                 Text(
                     text = title,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 2.sp,
-                    color = Color(0xFF64748B)
+                    color = Color(0xFF64748B),
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
                 )
-
-                if (trailingAction != null) {
-                    Box(
-                        modifier = Modifier.size(48.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        trailingAction()
-                    }
-                } else {
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Close,
-                            contentDescription = "關閉",
-                            tint = Color(0xFF64748B),
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))

@@ -157,9 +157,6 @@ fun MainContainerScreen(
             onRequestUnrestricted = {
                 viewModel.requestIgnoreBatteryOptimizations(activity)
             },
-            onOpenBatterySettings = {
-                viewModel.openBatterySettings(activity)
-            },
             onDismiss = {
                 showBatteryBottomSheet = false
                 viewModel.refreshBatteryStatus()
