@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -28,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,6 +38,10 @@ import com.geminiflow.app.presentation.theme.AppColors
 /**
  * 沉浸式下拉抽屜彈窗容器元件。
  * 提供 32dp 頂部大圓角、純白底色、拖曳指示條、置中標題與彈性操作區。
+ *
+ * 核心幾何約束架構：
+ * 抽屜外部保持全視窗測量，高度上限約束在內部 Content Column 執行（預設上限 80% 螢幕高）。
+ * 確保抽屜永遠嚴格貼齊螢幕底緣（Bottom-anchored），徹底杜絕懸空與頂到最頂部的問題。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,10 +49,14 @@ fun ImmersiveBottomSheet(
     title: String,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    maxHeightRatio: Float = 0.80f,
     trailingAction: (@Composable () -> Unit)? = null,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val configuration = LocalConfiguration.current
+    val maxSheetHeight = (configuration.screenHeightDp * maxHeightRatio).dp
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -59,6 +69,7 @@ fun ImmersiveBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(max = maxSheetHeight)
                 .padding(start = 24.dp, top = 12.dp, end = 24.dp, bottom = 32.dp)
                 .navigationBarsPadding()
                 .imePadding()
@@ -103,7 +114,7 @@ fun ImmersiveBottomSheet(
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             content()
         }
@@ -120,6 +131,7 @@ fun ImmersiveBottomSheet(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier,
+    maxHeightRatio: Float = 0.80f,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     content: @Composable ColumnScope.() -> Unit
 ) = ImmersiveBottomSheet(
@@ -139,6 +151,7 @@ fun ImmersiveBottomSheet(
         }
     },
     modifier = modifier,
+    maxHeightRatio = maxHeightRatio,
     sheetState = sheetState,
     content = content
 )

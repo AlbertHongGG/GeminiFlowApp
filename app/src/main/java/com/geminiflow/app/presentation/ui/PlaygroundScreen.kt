@@ -1,11 +1,6 @@
 package com.geminiflow.app.presentation.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,17 +11,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Dns
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -108,7 +100,7 @@ fun PlaygroundScreen(
         ) {
             Spacer(modifier = Modifier.height(28.dp))
 
-            // 1. 頂部標題區與清空對話按鈕
+            // 1. 頂部標題區與功能按鈕組 (模型選擇與清空對話，純 icon 按鈕無文字)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -134,104 +126,47 @@ fun PlaygroundScreen(
                     )
                 }
 
-                if (uiState.playgroundMessages.isNotEmpty()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // 模型切換純 icon 按鈕 (右上角，無文字)
                     IconButton(
-                        onClick = { viewModel.clearPlaygroundChat() },
+                        onClick = { showModelSheet = true },
                         modifier = Modifier
                             .size(38.dp)
                             .background(Color(0xFFF1F5F9), CircleShape)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.DeleteOutline,
-                            contentDescription = "清空對話",
-                            tint = AppColors.textSecondaryLight,
+                            imageVector = Icons.Default.Dns,
+                            contentDescription = "切換模型 (${currentModelSpec.displayName})",
+                            tint = Color(0xFF0F172A),
                             modifier = Modifier.size(20.dp)
                         )
+                    }
+
+                    // 清空對話純 icon 按鈕 (無文字)
+                    if (uiState.playgroundMessages.isNotEmpty()) {
+                        IconButton(
+                            onClick = { viewModel.clearPlaygroundChat() },
+                            modifier = Modifier
+                                .size(38.dp)
+                                .background(Color(0xFFF1F5F9), CircleShape)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DeleteOutline,
+                                contentDescription = "清空對話",
+                                tint = AppColors.textSecondaryLight,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // 2. 頂部快捷操作欄：模型選擇按鈕 + 範本庫按鈕
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // 模型選擇膠囊按鈕
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = Color(0xFF0F172A), // 深邃石墨黑
-                    modifier = Modifier.clickable { showModelSheet = true }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Dns,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = currentModelSpec.displayName,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.Rounded.KeyboardArrowDown,
-                            contentDescription = "選擇模型",
-                            tint = Color.White.copy(alpha = 0.8f),
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-
-                // 提示詞範本庫按鈕
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = AppColors.surfaceLight,
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                    modifier = Modifier.clickable { showTemplateSheet = true }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = null,
-                            tint = Color(0xFF475569),
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "範本庫",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF334155)
-                        )
-                        Spacer(modifier = Modifier.width(2.dp))
-                        Icon(
-                            imageVector = Icons.Rounded.KeyboardArrowDown,
-                            contentDescription = "選擇範本",
-                            tint = Color(0xFF64748B),
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // 3. 連續對話區域 (LensWise 連續對話流)
+            // 2. 連續對話區域 (LensWise 連續對話流)
             Box(
                 modifier = Modifier
                     .weight(1f)

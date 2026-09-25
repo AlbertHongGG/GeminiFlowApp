@@ -1,7 +1,6 @@
 package com.geminiflow.app.presentation.ui.playground.components
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -25,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.geminiflow.app.presentation.components.ImmersiveBottomSheet
@@ -32,7 +32,8 @@ import com.geminiflow.app.presentation.theme.AppColors
 import com.geminiflow.app.presentation.ui.playground.model.PlaygroundTemplate
 
 /**
- * 提示詞範本庫下拉抽屜彈窗。
+ * 提示詞範本庫下拉抽屜彈窗 (緊湊流暢版)。
+ * 永遠緊貼螢幕底緣，上限嚴格截斷於 80% 螢幕高，內部流暢滾動。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,8 +48,9 @@ fun TemplateSelectionBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .weight(1f, fill = false)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             PlaygroundTemplate.TEMPLATES.forEach { template ->
                 Surface(
@@ -58,14 +60,14 @@ fun TemplateSelectionBottomSheet(
                             onTemplateSelected(template.promptText)
                             onDismiss()
                         },
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(14.dp),
                     color = AppColors.surfaceLight,
-                    border = BorderStroke(1.dp, AppColors.borderLight)
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp)
+                            .padding(horizontal = 14.dp, vertical = 12.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -103,29 +105,15 @@ fun TemplateSelectionBottomSheet(
 
                         Spacer(modifier = Modifier.height(6.dp))
 
+                        // 提示詞預覽（雙行精簡，避免過度嵌套與冗長浪費）
                         Text(
-                            text = template.description,
-                            fontSize = 11.sp,
-                            color = AppColors.textSecondaryLight
+                            text = template.promptText,
+                            fontSize = 12.sp,
+                            color = Color(0xFF64748B),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            lineHeight = 17.sp
                         )
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // 提示詞內容預覽區
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = Color(0xFFF8FAFC),
-                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = template.promptText,
-                                fontSize = 12.sp,
-                                color = Color(0xFF334155),
-                                lineHeight = 18.sp,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                            )
-                        }
                     }
                 }
             }

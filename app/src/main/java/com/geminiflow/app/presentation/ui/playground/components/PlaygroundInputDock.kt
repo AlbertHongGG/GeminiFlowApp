@@ -74,22 +74,9 @@ fun PlaygroundInputDock(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 快捷範本庫圖標按鈕
-                IconButton(
-                    onClick = onOpenTemplates,
-                    modifier = Modifier.size(38.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AutoAwesome,
-                        contentDescription = "提示詞範本",
-                        tint = Color(0xFF64748B),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
                 // 多行自動延展輸入框
                 OutlinedTextField(
                     value = input,
@@ -113,7 +100,25 @@ fun PlaygroundInputDock(
                     keyboardActions = KeyboardActions(onSend = { onSend() })
                 )
 
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+
+                // 快捷範本庫純圖標按鈕 (位於發送按鈕旁，純 icon 無文字)
+                IconButton(
+                    onClick = onOpenTemplates,
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFF1F5F9))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = "提示詞範本庫",
+                        tint = Color(0xFF475569),
+                        modifier = Modifier.size(19.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(6.dp))
 
                 // 發送 / 中止操作按鈕
                 if (isGenerating) {
