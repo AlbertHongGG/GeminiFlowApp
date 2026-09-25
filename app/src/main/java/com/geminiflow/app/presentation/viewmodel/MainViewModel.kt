@@ -190,7 +190,6 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // Traffic Actions
     fun setTrafficFilter(filter: TrafficFilter) {
         _uiState.update { it.copy(trafficFilter = filter) }
     }
@@ -199,7 +198,6 @@ class MainViewModel : ViewModel() {
         trafficLogManager.clear()
     }
 
-    // Playground Sandbox Actions
     fun selectModel(model: String) {
         _uiState.update { it.copy(selectedModel = model) }
     }

@@ -65,8 +65,7 @@ private val AVAILABLE_MODELS = listOf(
 )
 
 /**
- * PlaygroundScreen: Interactive AI Chat and Image Sandbox
- * Aligned with LensWise minimalist styling and design tokens.
+ * AI 對話與多模態圖片生成互動沙盒介面。
  */
 @Composable
 fun PlaygroundScreen(
@@ -75,7 +74,7 @@ fun PlaygroundScreen(
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
 
-    // Auto-scroll when new messages arrive
+    // 當新訊息抵達時自動滾動至底部
     LaunchedEffect(uiState.playgroundMessages.size, uiState.playgroundMessages.lastOrNull()?.text?.length) {
         if (uiState.playgroundMessages.isNotEmpty()) {
             listState.animateScrollToItem(uiState.playgroundMessages.size - 1)
@@ -88,7 +87,6 @@ fun PlaygroundScreen(
         ) {
             Spacer(modifier = Modifier.height(28.dp))
 
-            // 1. Headerless Hero Header (LensWise typography)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -133,7 +131,6 @@ fun PlaygroundScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 2. Model Segmented Pills
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -166,14 +163,12 @@ fun PlaygroundScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 3. Message Timeline
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
             ) {
                 if (uiState.playgroundMessages.isEmpty()) {
-                    // Empty state suggestions
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -264,7 +259,6 @@ fun PlaygroundScreen(
                 }
             }
 
-            // 4. Docked Bottom Input Island
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -343,7 +337,7 @@ fun PlaygroundScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(96.dp)) // Clearance for floating nav dock
+            Spacer(modifier = Modifier.height(96.dp)) // 預留底部導航欄空間
         }
     }
 }
@@ -398,7 +392,6 @@ private fun PlaygroundBubble(message: PlaygroundChatMessage) {
                         }
                     }
 
-                    // Generated Images Gallery
                     if (message.images.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(10.dp))
                         message.images.forEach { imagePath ->

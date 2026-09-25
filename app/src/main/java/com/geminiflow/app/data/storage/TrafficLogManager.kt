@@ -9,7 +9,7 @@ import java.util.Collections
 import java.util.LinkedList
 
 /**
- * TrafficLogManager: In-memory live ring buffer of recent HTTP traffic requests.
+ * 記憶體即時環狀緩衝區，維護近期的 HTTP 網路請求記錄。
  */
 class TrafficLogManager(private val maxEntries: Int = 100) {
 
@@ -20,7 +20,7 @@ class TrafficLogManager(private val maxEntries: Int = 100) {
 
     fun record(log: TrafficLog) {
         synchronized(buffer) {
-            buffer.add(0, log) // Prepend newest
+            buffer.add(0, log)
             if (buffer.size > maxEntries) {
                 buffer.removeAt(buffer.size - 1)
             }

@@ -20,9 +20,7 @@ import androidx.compose.ui.unit.sp
 import com.geminiflow.app.presentation.theme.AppColors
 
 /**
- * PremiumConfigHeader: 100% matched to LensWise (lib/core/widgets/premium_config_header.dart)
- * 34sp ExtraBold title, 12sp Bold uppercase letter-spaced subtitle, and 3D ThinkingOrb in background.
- * Provides spacious 38dp top and 24dp bottom breathing space matching LensWise.
+ * 頁面頂部配置標題區塊，包含主標題、副標題與背景裝飾 ThinkingOrb。
  */
 @Composable
 fun PremiumConfigHeader(
@@ -36,8 +34,7 @@ fun PremiumConfigHeader(
             .fillMaxWidth()
             .padding(start = 24.dp, end = 16.dp, top = 38.dp, bottom = 24.dp)
     ) {
-        // Decorative 150dp ThinkingOrb vertically centered on the right
-        // Reports (0, 0) layout size so parent Box height is driven by text Row + paddings
+        // 裝飾用 ThinkingOrb：設定佈局尺寸為 (0, 0)，避免影響父容器高度計算
         Box(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
@@ -57,7 +54,6 @@ fun PremiumConfigHeader(
             ThinkingOrb(size = 150.dp, isDark = false)
         }
 
-        // Header Text & Trailing Content
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically

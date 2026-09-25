@@ -25,7 +25,7 @@ class GeminiFlowApplication : Application() {
             private set
     }
 
-    // Core Dependencies (Clean App-Scope Singleton Container)
+    // 核心依賴元件（全域單例容器）
     lateinit var okHttpClient: OkHttpClient
         private set
     lateinit var cookieHelper: CookieManagerHelper

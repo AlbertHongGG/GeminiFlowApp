@@ -5,7 +5,7 @@ import com.geminiflow.app.domain.model.TrafficFilter
 import com.geminiflow.app.domain.model.TrafficLog
 
 data class MainUiState(
-    // Server Core State
+    // 伺服器核心狀態
     val isServerRunning: Boolean = false,
     val serverHost: String = "127.0.0.1",
     val serverPort: Int = 5000,
@@ -15,21 +15,21 @@ data class MainUiState(
     val activeConnections: Int = 0,
     val serverErrorMessage: String? = null,
 
-    // Security & Auth
+    // 帳號認證與電源安全
     val isAuthenticated: Boolean = false,
     val isBatteryUnrestricted: Boolean = false,
     val autoStartOnBoot: Boolean = false,
     val oemTips: String = "",
 
-    // Disk Cache & Storage
+    // 快取與磁碟空間
     val cacheFilesCount: Int = 0,
     val cacheSizeBytes: Long = 0L,
 
-    // Traffic Monitor
+    // 網路流量監控
     val trafficLogs: List<TrafficLog> = emptyList(),
     val trafficFilter: TrafficFilter = TrafficFilter.ALL,
 
-    // Playground Sandbox
+    // 互動沙盒
     val selectedModel: String = "gemini-3-pro",
     val promptInput: String = "請用繁體中文自我介紹，並告訴我你支援什麼功能。",
     val playgroundMessages: List<PlaygroundChatMessage> = emptyList(),

@@ -55,8 +55,7 @@ import com.geminiflow.app.presentation.components.ImmersiveScaffold
 import com.geminiflow.app.presentation.theme.AppColors
 
 /**
- * ServerHubScreen: Clean, un-cluttered main dashboard and server management view
- * Strictly follows LensWise color palette and typography.
+ * 本地伺服器主控台與狀態監控畫面。
  */
 @Composable
 fun ServerHubScreen(
@@ -78,7 +77,6 @@ fun ServerHubScreen(
         ) {
             Spacer(modifier = Modifier.height(28.dp))
 
-            // 1. Headerless Hero Brand Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -110,7 +108,6 @@ fun ServerHubScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 2. Master Server Management Card (LensWise style)
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -161,7 +158,6 @@ fun ServerHubScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // 3. Metrics 2x2 Grid (LensWise Card style)
             Text(
                 text = "服務度量統計",
                 fontSize = 13.sp,
@@ -215,7 +211,6 @@ fun ServerHubScreen(
 
             Spacer(modifier = Modifier.height(22.dp))
 
-            // 4. Quick Guardian Checklist (LensWise style)
             Text(
                 text = "守護就緒狀態",
                 fontSize = 13.sp,
@@ -229,7 +224,6 @@ fun ServerHubScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Google Auth Tile
                 Surface(
                     modifier = Modifier
                         .weight(1f)
@@ -279,7 +273,6 @@ fun ServerHubScreen(
                     }
                 }
 
-                // Battery Optimization Tile
                 Surface(
                     modifier = Modifier
                         .weight(1f)

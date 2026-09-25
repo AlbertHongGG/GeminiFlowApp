@@ -58,7 +58,7 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * AiLogViewerScreen: 100% matched to LensWise's AiLogViewerScreen.
+ * AI 解析與網路請求日誌監控畫面。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -117,7 +117,6 @@ fun AiLogViewerScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Filter Pills (LensWise style)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -144,7 +143,6 @@ fun AiLogViewerScreen(
                 }
             }
 
-            // Logs Feed
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -186,7 +184,7 @@ fun AiLogViewerScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(filteredLogs, key = { it.id }) { log ->
-                            LensWiseLogCard(log = log)
+                            TrafficLogCard(log = log)
                         }
                         item {
                             Spacer(modifier = Modifier.height(24.dp))
@@ -199,10 +197,10 @@ fun AiLogViewerScreen(
 }
 
 /**
- * LensWiseLogCard: Recreated from LensWise's _buildLogCard
+ * 單筆流量日誌卡片元件。
  */
 @Composable
-private fun LensWiseLogCard(log: TrafficLog) {
+private fun TrafficLogCard(log: TrafficLog) {
     var isExpanded by remember { mutableStateOf(false) }
 
     val statusColor = when {
@@ -229,7 +227,6 @@ private fun LensWiseLogCard(log: TrafficLog) {
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Leading circular smart toy icon container (LensWise style)
                 Box(
                     modifier = Modifier
                         .size(38.dp)
@@ -247,7 +244,6 @@ private fun LensWiseLogCard(log: TrafficLog) {
 
                 Spacer(modifier = Modifier.width(14.dp))
 
-                // Title & Subtitle
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(

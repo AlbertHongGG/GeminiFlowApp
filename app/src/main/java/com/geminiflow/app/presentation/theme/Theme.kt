@@ -4,7 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
-private val LensWiseLightColorScheme = lightColorScheme(
+private val GeminiFlowLightColorScheme = lightColorScheme(
     primary = AppColors.primary,
     onPrimary = AppColors.surfaceLight,
     primaryContainer = AppColors.primary.copy(alpha = 0.1f),
@@ -38,7 +38,7 @@ fun GeminiFlowTheme(
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
-        colorScheme = LensWiseLightColorScheme,
+        colorScheme = GeminiFlowLightColorScheme,
         content = content
     )
 }

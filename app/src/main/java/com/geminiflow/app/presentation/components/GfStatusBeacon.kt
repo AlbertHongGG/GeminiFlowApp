@@ -29,7 +29,7 @@ import com.geminiflow.app.presentation.theme.AccentRose
 import com.geminiflow.app.presentation.theme.TextSecondary
 
 /**
- * GfStatusBeacon: Dynamic Breathing Status Indicator
+ * 具呼吸燈動畫效果的狀態指示燈元件。
  */
 @Composable
 fun GfStatusBeacon(

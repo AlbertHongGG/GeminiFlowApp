@@ -28,8 +28,7 @@ import androidx.compose.ui.unit.sp
 import com.geminiflow.app.presentation.theme.AppColors
 
 /**
- * SettingsTile: 100% directly ported from LensWise (lib/features/settings/presentation/widgets/settings_tile.dart)
- * Circular tinted icon container, 16sp title, 12sp subtitle, 14dp arrow_forward_ios_rounded.
+ * 設定項目列表元件，包含圖示、標題、副標題及右側操作元件或指示箭頭。
  */
 @Composable
 fun SettingsTile(
@@ -53,7 +52,6 @@ fun SettingsTile(
             .padding(horizontal = 16.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Container with padding 8, circle shape, iconBgColor
         Box(
             modifier = Modifier
                 .size(36.dp)
@@ -71,7 +69,6 @@ fun SettingsTile(
 
         Spacer(modifier = Modifier.width(16.dp))
 
-        // Title and optional Subtitle
         Column(
             modifier = Modifier.weight(1f)
         ) {
@@ -92,7 +89,6 @@ fun SettingsTile(
             }
         }
 
-        // Trailing element or Chevron
         if (trailing != null) {
             Spacer(modifier = Modifier.width(8.dp))
             trailing()

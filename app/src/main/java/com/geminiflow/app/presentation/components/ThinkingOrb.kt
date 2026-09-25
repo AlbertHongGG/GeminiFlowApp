@@ -133,8 +133,7 @@ private class DotPoint(
 )
 
 /**
- * ThinkingOrb: 3D Rubik particle sphere in Jetpack Compose
- * Recreated from LensWise / Jakubantalik's thinking-orbs.
+ * 3D 粒子球體動畫元件。
  */
 @Composable
 fun ThinkingOrb(

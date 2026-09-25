@@ -40,7 +40,7 @@ enum class GfButtonVariant {
 }
 
 /**
- * GfButton: Flat, high-end, zero solid gradient button.
+ * 統一按鈕元件，支援多種樣式變體。
  */
 @Composable
 fun GfButton(

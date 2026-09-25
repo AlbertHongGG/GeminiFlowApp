@@ -48,8 +48,7 @@ import com.geminiflow.app.presentation.theme.AppColors
 import com.geminiflow.app.presentation.viewmodel.MainViewModel
 
 /**
- * SettingsPage: Grouped, minimal, modular settings page 100% matched to LensWise.
- * Strictly avoids wordy descriptions and bracketed English text.
+ * 系統進階設定頁面。
  */
 @Composable
 fun SettingsPage(
@@ -65,7 +64,6 @@ fun SettingsPage(
     var hostInput by remember { mutableStateOf(uiState.serverHost) }
     var portInput by remember { mutableStateOf(uiState.serverPort.toString()) }
 
-    // Dialog: Edit Server Network Binding
     if (showNetworkDialog) {
         AlertDialog(
             onDismissRequest = { showNetworkDialog = false },
@@ -131,15 +129,13 @@ fun SettingsPage(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(bottom = 110.dp) // Clearance for Yoyu floating nav bar
+                .padding(bottom = 110.dp) // 預留底部導航欄空間
         ) {
-            // 1. Premium Config Header with ThinkingOrb (Matched to LensWise Figure 4)
             PremiumConfigHeader(
                 title = "進階設定",
                 subtitle = "SYSTEM CONFIGURATION"
             )
 
-            // 2. Section: 系統 (服務端點、自啟動、電池最佳化)
             SettingsSection(title = "系統") {
                 SettingsTile(
                     icon = Icons.Default.Dns,
@@ -180,7 +176,6 @@ fun SettingsPage(
                 )
             }
 
-            // 3. Section: AI 引擎與日誌
             SettingsSection(title = "AI 引擎與日誌") {
                 SettingsTile(
                     icon = Icons.Default.DataObject,
@@ -210,7 +205,6 @@ fun SettingsPage(
                 )
             }
 
-            // 4. Section: GOOGLE 帳號憑證
             SettingsSection(title = "GOOGLE 帳號憑證") {
                 SettingsTile(
                     icon = Icons.Default.AccountCircle,

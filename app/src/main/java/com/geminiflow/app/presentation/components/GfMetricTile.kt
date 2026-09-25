@@ -22,7 +22,7 @@ import com.geminiflow.app.presentation.theme.TextPrimary
 import com.geminiflow.app.presentation.theme.TextSecondary
 
 /**
- * GfMetricTile: Clean, professional metric display tile.
+ * 數據指標展示卡片元件。
  */
 @Composable
 fun GfMetricTile(

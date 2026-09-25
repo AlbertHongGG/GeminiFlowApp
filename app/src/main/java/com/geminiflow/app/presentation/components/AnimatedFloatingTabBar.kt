@@ -44,7 +44,7 @@ import androidx.compose.ui.unit.sp
 import com.geminiflow.app.presentation.theme.AppColors
 
 /**
- * FloatingTabItem: Ported from Yoyu (lib/core/widgets/animated_floating_tab_bar.dart)
+ * 底部導航欄項目資料模型。
  */
 data class FloatingTabItem(
     val icon: ImageVector,
@@ -60,8 +60,7 @@ enum class AppTab(val tabItem: FloatingTabItem) {
 private val EaseOutCubic = CubicBezierEasing(0.215f, 0.610f, 0.355f, 1.0f)
 
 /**
- * AnimatedFloatingTabBar: 100% faithful duplication of Yoyu's AnimatedFloatingTabBar.
- * Centered floating pill dock with 300ms easeOutCubic expanding animation.
+ * 底部膠囊浮動導航欄，支援 300ms 平滑展開與切換動畫。
  */
 @Composable
 fun AnimatedFloatingTabBar(

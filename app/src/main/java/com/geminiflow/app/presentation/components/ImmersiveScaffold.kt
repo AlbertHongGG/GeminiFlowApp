@@ -10,9 +10,7 @@ import androidx.compose.ui.Modifier
 import com.geminiflow.app.presentation.theme.AppColors
 
 /**
- * ImmersiveScaffold: Ported directly from LensWise (lib/core/widgets/immersive_scaffold.dart)
- * Provides standard background (AppColors.backgroundLight) and statusBarsPadding,
- * enforcing the gesture-only minimalist layout without traditional AppBars.
+ * 提供統一背景色與狀態列邊距的全螢幕容器元件。
  */
 @Composable
 fun ImmersiveScaffold(

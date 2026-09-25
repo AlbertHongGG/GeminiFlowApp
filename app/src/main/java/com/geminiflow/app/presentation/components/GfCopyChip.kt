@@ -32,7 +32,7 @@ import com.geminiflow.app.presentation.theme.SurfaceElevated
 import com.geminiflow.app.presentation.theme.TextPrimary
 
 /**
- * GfCopyChip: Monospace URL Pill Chip with one-tap copy functionality.
+ * 點擊即可複製內容至剪貼簿的標籤元件。
  */
 @Composable
 fun GfCopyChip(

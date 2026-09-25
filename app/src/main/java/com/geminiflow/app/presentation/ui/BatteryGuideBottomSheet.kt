@@ -38,8 +38,7 @@ import com.geminiflow.app.presentation.components.GfCard
 import com.geminiflow.app.presentation.theme.AppColors
 
 /**
- * BatteryGuideBottomSheet: Half-screen pure light bottom sheet for battery optimization
- * Styled strictly according to LensWise minimalist tokens.
+ * 電池最佳化與背景執行指引底部彈窗。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,7 +64,6 @@ fun BatteryGuideBottomSheet(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Header
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = if (isUnrestricted) Icons.Default.CheckCircle else Icons.Default.BatteryAlert,
@@ -89,7 +87,6 @@ fun BatteryGuideBottomSheet(
                 }
             }
 
-            // Status Card
             Surface(
                 shape = RoundedCornerShape(14.dp),
                 color = if (isUnrestricted) AppColors.success.copy(alpha = 0.08f) else AppColors.warning.copy(alpha = 0.08f),
@@ -119,7 +116,6 @@ fun BatteryGuideBottomSheet(
                 }
             }
 
-            // Step 1: Unrestricted Battery
             GfCard(
                 modifier = Modifier.fillMaxWidth(),
                 backgroundColor = AppColors.surfaceLight,
@@ -148,7 +144,6 @@ fun BatteryGuideBottomSheet(
                 )
             }
 
-            // Step 2: OEM Auto-Start & Background Lock
             if (oemTips.isNotBlank()) {
                 GfCard(
                     modifier = Modifier.fillMaxWidth(),

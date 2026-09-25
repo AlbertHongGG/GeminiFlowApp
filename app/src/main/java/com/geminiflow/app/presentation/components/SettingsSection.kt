@@ -17,8 +17,7 @@ import androidx.compose.ui.unit.sp
 import com.geminiflow.app.presentation.theme.AppColors
 
 /**
- * SettingsSection: 100% directly ported from LensWise (lib/features/settings/presentation/widgets/settings_section.dart)
- * Single white rounded 16dp container with soft 10dp blur shadow and indented dividers.
+ * 設定分組區塊，提供圓角卡片容器與分組標題。
  */
 @Composable
 fun SettingsSection(
@@ -62,7 +61,7 @@ fun SettingsSection(
 }
 
 /**
- * SettingsDivider: Standard 1px divider with indent 56dp and endIndent 16dp from LensWise.
+ * 設定項目分隔線，左側縮排以對齊項目文字。
  */
 @Composable
 fun SettingsDivider() {

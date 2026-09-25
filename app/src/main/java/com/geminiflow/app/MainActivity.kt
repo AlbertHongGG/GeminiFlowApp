@@ -50,7 +50,6 @@ class MainActivity : ComponentActivity() {
 
     private val requestNotificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
-            // Notification permission handled
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -170,7 +169,7 @@ fun MainContainerScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Main Viewport with animated transition between the 3 core screens
+        // 主畫面視圖：於三大核心頁面間切換
         AnimatedContent(
             targetState = selectedTab,
             transitionSpec = {
@@ -204,7 +203,7 @@ fun MainContainerScreen(
             }
         }
 
-        // Yoyu-style Centered Animated Floating Tab Bar at bottom
+        // 底部浮動導航欄
         AnimatedFloatingTabBar(
             selectedTab = selectedTab,
             onTabSelected = { selectedTab = it },

@@ -3,7 +3,7 @@ package com.geminiflow.app.domain.model
 import java.util.UUID
 
 /**
- * PlaygroundChatMessage: Individual bubble message in PlaygroundScreen
+ * 沙盒對話訊息項目資料模型。
  */
 data class PlaygroundChatMessage(
     val id: String = UUID.randomUUID().toString(),

@@ -3,7 +3,7 @@ package com.geminiflow.app.presentation.theme
 import androidx.compose.ui.graphics.Color
 
 /**
- * AppColors: Directly ported from LensWise (lib/core/theme/app_colors.dart)
+ * 應用程式色彩定義與調色盤。
  */
 object AppColors {
     // Backgrounds
@@ -14,7 +14,7 @@ object AppColors {
     val surfaceDark = Color(0xFF1E2130)
 
     // Accents
-    val primary = Color(0xFF475569)         // Muted Slate 600 (LensWise signature primary)
+    val primary = Color(0xFF475569)         // Muted Slate 600
     val secondary = Color(0xFF94A3B8)       // Slate 400
 
     // Text

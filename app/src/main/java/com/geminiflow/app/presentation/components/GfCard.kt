@@ -16,8 +16,7 @@ import com.geminiflow.app.presentation.theme.BorderLight
 import com.geminiflow.app.presentation.theme.SurfaceCard
 
 /**
- * GfCard: Pure White Ceramic Flat Card
- * Zero solid gradients. Features crisp 1dp hairline border and soft clean elevation.
+ * 統一卡片容器元件，提供邊框、圓角與自訂陰影樣式。
  */
 @Composable
 fun GfCard(
