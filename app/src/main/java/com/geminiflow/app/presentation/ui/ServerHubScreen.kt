@@ -1,5 +1,6 @@
 package com.geminiflow.app.presentation.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -7,9 +8,18 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -28,20 +38,18 @@ import com.geminiflow.app.presentation.ui.server.TelemetryGraphicInstrument
 import com.geminiflow.app.presentation.viewmodel.MainViewModel
 
 /**
- * 本地伺服器主控台與狀態監控畫面 (重構旗艦版)。
+ * 本地伺服器主控台畫面 (無底部導航欄旗艦版)。
  *
  * 架構特點：
- * 1. 視覺焦點確立：以 EngineCoreVisualizer 為絕對核心主體，結合 Canvas 原生向量動態刻度環與即時呼吸回饋。
- * 2. 精密圖形化遙測：以 TelemetryGraphicInstrument 呈現火花波形、LED 計量條與等寬微排版時鐘。
- * 3. 告別冗贅資訊：徹底剔除主畫面「守護就緒」靜態卡片，未授權直接由全域 NotificationController 守衛。
- * 4. 零遮蔽排版：底層保留 96dp 安全邊界，與懸浮膠囊導航欄和諧共存。
+ * 1. 導航進化：徹底移除底部導航欄，沙盒與設定以純 Icon 按鈕置於右上角。
+ * 2. 延伸介面右滑退棧：沙盒與設定作為延伸介面，進入後右滑手勢直接返回主畫面，無返回按鈕干擾。
+ * 3. 視覺焦點明確：動態引擎示波儀居中展開，圖形 100% 無遮蔽。
  */
 @Composable
 fun ServerHubScreen(
     viewModel: MainViewModel,
-    onNavigateToLogin: () -> Unit = {},
-    onOpenBatteryGuide: () -> Unit = {},
-    onNavigateToSettings: () -> Unit = {}
+    onNavigateToSandbox: () -> Unit,
+    onNavigateToSettings: () -> Unit
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
@@ -55,7 +63,7 @@ fun ServerHubScreen(
         ) {
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 1. 頂部工程品牌標題
+            // 1. 頂部工程品牌標題與快捷導航按鈕 (沙盒 + 設定，純 Icon 按鈕)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -77,6 +85,41 @@ fun ServerHubScreen(
                         color = AppColors.textSecondaryLight,
                         letterSpacing = 1.5.sp
                     )
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // 沙盒入口按鈕 (純 Icon，無文字)
+                    IconButton(
+                        onClick = onNavigateToSandbox,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .background(Color(0xFFF1F5F9), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Terminal,
+                            contentDescription = "模型沙盒",
+                            tint = Color(0xFF0F172A),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    // 設定入口按鈕 (純 Icon，無文字)
+                    IconButton(
+                        onClick = onNavigateToSettings,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .background(Color(0xFFF1F5F9), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = "進階設定",
+                            tint = Color(0xFF0F172A),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
 
@@ -113,8 +156,8 @@ fun ServerHubScreen(
                 cacheFilesCount = uiState.cacheFilesCount
             )
 
-            // 5. 預留底部懸浮膠囊導航欄的安全高度
-            Spacer(modifier = Modifier.height(96.dp))
+            // 5. 底部自然留白
+            Spacer(modifier = Modifier.height(24.dp).navigationBarsPadding())
         }
     }
 }

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -157,7 +158,7 @@ fun PlaygroundInputDock(
             }
         }
 
-        // 預留底部懸浮膠囊導航欄的安全高度
-        Spacer(modifier = Modifier.height(96.dp))
+        // 底部安全留白
+        Spacer(modifier = Modifier.height(16.dp).navigationBarsPadding())
     }
 }

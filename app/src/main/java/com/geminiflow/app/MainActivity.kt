@@ -22,15 +22,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
-import com.geminiflow.app.presentation.navigation.components.HuggingCapsuleNavBar
-import com.geminiflow.app.presentation.navigation.components.NavTabTransitionContainer
 import com.geminiflow.app.presentation.navigation.components.CupertinoSwipeBackContainer
 import com.geminiflow.app.presentation.navigation.components.LocalCupertinoNavigator
 import com.geminiflow.app.presentation.navigation.model.AppRoute
-import com.geminiflow.app.presentation.navigation.model.AppTab
 import com.geminiflow.app.presentation.notification.GlobalNotificationOverlay
 import com.geminiflow.app.presentation.theme.GeminiFlowTheme
 import com.geminiflow.app.presentation.ui.AiLogViewerScreen
@@ -93,6 +89,20 @@ fun AppNavigation(
 ) {
     val app = GeminiFlowApplication.instance
     val uiState by viewModel.uiState.collectAsState()
+    var showBatteryBottomSheet by rememberSaveable { mutableStateOf(false) }
+
+    if (showBatteryBottomSheet) {
+        BatteryGuideBottomSheet(
+            isUnrestricted = uiState.isBatteryUnrestricted,
+            onRequestUnrestricted = {
+                viewModel.requestIgnoreBatteryOptimizations(activity)
+            },
+            onDismiss = {
+                showBatteryBottomSheet = false
+                viewModel.refreshBatteryStatus()
+            }
+        )
+    }
 
     CupertinoSwipeBackContainer(
         backStack = uiState.backStack,
@@ -102,10 +112,22 @@ fun AppNavigation(
         val navigator = LocalCupertinoNavigator.current
         when (route) {
             is AppRoute.Main -> {
-                MainContainerScreen(
+                ServerHubScreen(
                     viewModel = viewModel,
-                    activity = activity,
+                    onNavigateToSandbox = { navigator.push(AppRoute.Sandbox) },
+                    onNavigateToSettings = { navigator.push(AppRoute.Settings) }
+                )
+            }
+            is AppRoute.Sandbox -> {
+                PlaygroundScreen(
+                    viewModel = viewModel
+                )
+            }
+            is AppRoute.Settings -> {
+                SettingsPage(
+                    viewModel = viewModel,
                     onNavigateToLogin = { navigator.push(AppRoute.GoogleAuth) },
+                    onOpenBatteryGuide = { showBatteryBottomSheet = true },
                     onNavigateToAiLogs = { navigator.push(AppRoute.AiLogs) },
                     onNavigateToNotificationLogs = { navigator.push(AppRoute.NotificationLogs) }
                 )
@@ -137,70 +159,5 @@ fun AppNavigation(
                 )
             }
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun MainContainerScreen(
-    viewModel: MainViewModel,
-    activity: ComponentActivity,
-    onNavigateToLogin: () -> Unit,
-    onNavigateToAiLogs: () -> Unit,
-    onNavigateToNotificationLogs: () -> Unit
-) {
-    var showBatteryBottomSheet by rememberSaveable { mutableStateOf(false) }
-    val uiState by viewModel.uiState.collectAsState()
-    if (showBatteryBottomSheet) {
-        BatteryGuideBottomSheet(
-            isUnrestricted = uiState.isBatteryUnrestricted,
-            onRequestUnrestricted = {
-                viewModel.requestIgnoreBatteryOptimizations(activity)
-            },
-            onDismiss = {
-                showBatteryBottomSheet = false
-                viewModel.refreshBatteryStatus()
-            }
-        )
-    }
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        // 1. 三大核心頁面內容層：採用點對點定向視差平滑分頁容器，徹底根除跨頁連鎖重組與全螢幕 Haze 記憶體風暴
-        NavTabTransitionContainer(
-            activeTab = uiState.activeTab,
-            modifier = Modifier.fillMaxSize()
-        ) { tab ->
-            when (tab) {
-                AppTab.DASHBOARD -> {
-                    ServerHubScreen(
-                        viewModel = viewModel,
-                        onNavigateToLogin = onNavigateToLogin,
-                        onOpenBatteryGuide = { showBatteryBottomSheet = true },
-                        onNavigateToSettings = { viewModel.selectTab(AppTab.SETTINGS) }
-                    )
-                }
-                AppTab.SANDBOX -> {
-                    PlaygroundScreen(
-                        viewModel = viewModel
-                    )
-                }
-                AppTab.SETTINGS -> {
-                    SettingsPage(
-                        viewModel = viewModel,
-                        onNavigateToLogin = onNavigateToLogin,
-                        onOpenBatteryGuide = { showBatteryBottomSheet = true },
-                        onNavigateToAiLogs = onNavigateToAiLogs,
-                        onNavigateToNotificationLogs = onNavigateToNotificationLogs
-                    )
-                }
-            }
-        }
-
-        // 2. 緊緻包裹正圓晶透白瓷導航欄 (Apple VisionOS 晶透白瓷浮島風格，單一實體滑動圓盤)
-        HuggingCapsuleNavBar(
-            selectedTab = uiState.activeTab,
-            onTabSelected = { viewModel.selectTab(it) },
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
     }
 }

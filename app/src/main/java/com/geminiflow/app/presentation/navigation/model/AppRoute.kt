@@ -7,9 +7,19 @@ package com.geminiflow.app.presentation.navigation.model
 sealed interface AppRoute {
     val key: String
 
-    /** 核心主畫面（包含三大底部分頁：儀表板、沙盒、設定） */
+    /** 主控台核心主畫面 (ServerHubScreen) */
     data object Main : AppRoute {
         override val key: String = "route_main"
+    }
+
+    /** AI 沙盒延伸介面 (PlaygroundScreen) */
+    data object Sandbox : AppRoute {
+        override val key: String = "route_sandbox"
+    }
+
+    /** 系統設定延伸介面 (SettingsPage) */
+    data object Settings : AppRoute {
+        override val key: String = "route_settings"
     }
 
     /** Google 帳號認證登入頁面 */
