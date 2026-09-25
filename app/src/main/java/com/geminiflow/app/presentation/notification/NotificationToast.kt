@@ -33,16 +33,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.geminiflow.app.domain.model.AppNotification
 import com.geminiflow.app.domain.model.NotificationType
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeChild
 
 /**
- * 全域浮動通知卡片元件，具備毛玻璃外觀、專屬色彩圖標與手動關閉按鈕。
+ * 全域浮動通知卡片元件。
+ * 1:1 移植 LensWise 設計：真毛玻璃背景模糊 (sigma=12dp, 70%白)、超細微黑邊框 (alpha=0.05)、
+ * 柔和投射陰影 (alpha=0.10, blur=20dp) 與精緻 Typography。
  */
 @Composable
 fun NotificationToast(
     notification: AppNotification,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
-    isDark: Boolean = false
+    hazeState: HazeState? = null
 ) {
     val (typeColor, typeIcon) = when (notification.type) {
         NotificationType.SUCCESS -> Pair(Color(0xFF10B981), Icons.Outlined.CheckCircleOutline)
@@ -51,34 +55,34 @@ fun NotificationToast(
         NotificationType.WARNING -> Pair(Color(0xFFF59E0B), Icons.Outlined.WarningAmber)
     }
 
-    val backgroundColor = if (isDark) {
-        Color.Black.copy(alpha = 0.65f)
-    } else {
-        Color.White.copy(alpha = 0.92f)
-    }
-
-    val borderColor = if (isDark) {
-        Color.White.copy(alpha = 0.12f)
-    } else {
-        Color.Black.copy(alpha = 0.08f)
-    }
-
-    val textColor = if (isDark) Color.White else Color(0xFF1E293B)
-    val closeIconColor = if (isDark) Color.White.copy(alpha = 0.54f) else Color.Black.copy(alpha = 0.45f)
+    val shape = RoundedCornerShape(16.dp)
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
             .shadow(
-                elevation = 12.dp,
-                shape = RoundedCornerShape(16.dp),
+                elevation = 8.dp,
+                shape = shape,
                 ambientColor = Color.Black.copy(alpha = 0.08f),
                 spotColor = Color.Black.copy(alpha = 0.12f)
             )
-            .clip(RoundedCornerShape(16.dp))
-            .background(backgroundColor)
-            .border(width = 1.dp, color = borderColor, shape = RoundedCornerShape(16.dp))
+            .clip(shape)
+            .then(
+                if (hazeState != null) {
+                    Modifier.hazeChild(state = hazeState) {
+                        blurRadius = 12.dp
+                        backgroundColor = Color.White.copy(alpha = 0.70f)
+                    }
+                } else {
+                    Modifier.background(Color.White.copy(alpha = 0.85f))
+                }
+            )
+            .border(
+                width = 1.dp,
+                color = Color.Black.copy(alpha = 0.05f),
+                shape = shape
+            )
             .padding(horizontal = 16.dp, vertical = 14.dp)
     ) {
         Row(
@@ -96,10 +100,10 @@ fun NotificationToast(
 
             Text(
                 text = notification.message,
-                color = textColor,
+                color = Color(0xDE000000), // black87
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
-                letterSpacing = 0.3.sp,
+                letterSpacing = 0.5.sp,
                 modifier = Modifier.weight(1f)
             )
 
@@ -119,8 +123,8 @@ fun NotificationToast(
                 Icon(
                     imageVector = Icons.Outlined.Close,
                     contentDescription = "關閉",
-                    tint = closeIconColor,
-                    modifier = Modifier.size(18.dp)
+                    tint = Color.Black.copy(alpha = 0.54f), // black54
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }

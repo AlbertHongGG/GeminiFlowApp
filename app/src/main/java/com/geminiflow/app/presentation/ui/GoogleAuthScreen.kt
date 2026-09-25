@@ -1,7 +1,8 @@
 package com.geminiflow.app.presentation.ui
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.Box
+import com.geminiflow.app.presentation.notification.NotificationController
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,7 +28,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -47,7 +47,6 @@ import kotlinx.coroutines.launch
 fun GoogleAuthScreen(
     onNavigateBack: () -> Unit
 ) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val authRepo = GeminiFlowApplication.instance.authRepository
     val cookieBridge = remember { CookieBridge() }
@@ -60,7 +59,7 @@ fun GoogleAuthScreen(
         val cookieHeader = cookies.entries.joinToString("; ") { "${it.key}=${it.value}" }
         scope.launch {
             authRepo.saveCookies(cookieHeader)
-            Toast.makeText(context, "Google 帳號認證成功！已取得憑證", Toast.LENGTH_SHORT).show()
+            NotificationController.showSuccess("Google 帳號認證成功！已取得憑證")
             onNavigateBack()
         }
     }
@@ -90,7 +89,7 @@ fun GoogleAuthScreen(
                                 )
                                 wv.loadUrl(AuthBrowserConfig.INITIAL_LOGIN_URL)
                                 val mode = if (useSafariUa) "Safari (iOS)" else "Chrome (Android)"
-                                Toast.makeText(context, "已切換瀏覽器標識為：$mode", Toast.LENGTH_SHORT).show()
+                                NotificationController.showInfo("已切換瀏覽器標識為：$mode")
                             }
                         }
                     ) {
@@ -107,7 +106,7 @@ fun GoogleAuthScreen(
                                 scope.launch {
                                     authRepo.clearAuth()
                                     webViewInstance?.loadUrl(AuthBrowserConfig.INITIAL_LOGIN_URL)
-                                    Toast.makeText(context, "已清除目前登入狀態", Toast.LENGTH_SHORT).show()
+                                    NotificationController.showWarning("已清除目前登入狀態")
                                 }
                             }
                         }

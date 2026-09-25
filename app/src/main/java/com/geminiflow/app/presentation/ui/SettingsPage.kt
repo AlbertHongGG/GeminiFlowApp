@@ -1,6 +1,5 @@
 package com.geminiflow.app.presentation.ui
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -34,7 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -64,7 +63,6 @@ fun SettingsPage(
     onNavigateToAiLogs: () -> Unit,
     onNavigateToNotificationLogs: () -> Unit
 ) {
-    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
 
     var showNetworkBottomSheet by remember { mutableStateOf(false) }
@@ -247,7 +245,7 @@ fun SettingsPage(
                         isDestructive = true,
                         onTap = {
                             viewModel.clearAuth()
-                            Toast.makeText(context, "已清除 Google 憑證", Toast.LENGTH_SHORT).show()
+                            NotificationController.showWarning("已清除 Google 憑證")
                         }
                     )
                 }

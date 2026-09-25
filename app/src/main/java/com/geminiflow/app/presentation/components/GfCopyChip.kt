@@ -3,7 +3,6 @@ package com.geminiflow.app.presentation.components
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,6 +25,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.geminiflow.app.presentation.notification.NotificationController
 import com.geminiflow.app.presentation.theme.AccentBlue
 import com.geminiflow.app.presentation.theme.BorderLight
 import com.geminiflow.app.presentation.theme.SurfaceElevated
@@ -38,7 +38,7 @@ import com.geminiflow.app.presentation.theme.TextPrimary
 fun GfCopyChip(
     text: String,
     modifier: Modifier = Modifier,
-    toastMessage: String = "已複製伺服器網址"
+    copyMessage: String = "已複製伺服器網址"
 ) {
     val context = LocalContext.current
 
@@ -47,7 +47,7 @@ fun GfCopyChip(
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val clip = ClipData.newPlainText("Server URL", text)
             clipboard.setPrimaryClip(clip)
-            Toast.makeText(context, toastMessage, Toast.LENGTH_SHORT).show()
+            NotificationController.showSuccess(copyMessage)
         },
         shape = RoundedCornerShape(10.dp),
         color = SurfaceElevated,

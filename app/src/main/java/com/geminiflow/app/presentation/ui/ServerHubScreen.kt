@@ -129,7 +129,7 @@ fun ServerHubScreen(
                     val serverUrl = "http://${uiState.serverHost}:${uiState.serverPort}"
                     GfCopyChip(
                         text = serverUrl,
-                        toastMessage = "已複製伺服器端點網址"
+                        copyMessage = "已複製伺服器端點網址"
                     )
 
                     Spacer(modifier = Modifier.height(18.dp))

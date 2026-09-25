@@ -16,8 +16,10 @@ okhttp = "4.12.0"
 kotlinxSerialization = "1.7.3"
 kotlinxCoroutines = "1.8.1"
 coil = "2.7.0"
+haze = "1.0.0"
 
 [libraries]
+haze = { group = "dev.chrisbanes.haze", name = "haze", version.ref = "haze" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
