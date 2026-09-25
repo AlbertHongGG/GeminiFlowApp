@@ -18,7 +18,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -126,40 +125,20 @@ fun PlaygroundScreen(
                     )
                 }
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // 模型切換純 icon 按鈕 (右上角，無文字)
+                // 清空對話純 icon 按鈕 (無文字，有對話時顯示)
+                if (uiState.playgroundMessages.isNotEmpty()) {
                     IconButton(
-                        onClick = { showModelSheet = true },
+                        onClick = { viewModel.clearPlaygroundChat() },
                         modifier = Modifier
                             .size(38.dp)
                             .background(Color(0xFFF1F5F9), CircleShape)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Dns,
-                            contentDescription = "切換模型 (${currentModelSpec.displayName})",
-                            tint = Color(0xFF0F172A),
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = "清空對話",
+                            tint = AppColors.textSecondaryLight,
                             modifier = Modifier.size(20.dp)
                         )
-                    }
-
-                    // 清空對話純 icon 按鈕 (無文字)
-                    if (uiState.playgroundMessages.isNotEmpty()) {
-                        IconButton(
-                            onClick = { viewModel.clearPlaygroundChat() },
-                            modifier = Modifier
-                                .size(38.dp)
-                                .background(Color(0xFFF1F5F9), CircleShape)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.DeleteOutline,
-                                contentDescription = "清空對話",
-                                tint = AppColors.textSecondaryLight,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
                     }
                 }
             }
@@ -206,7 +185,7 @@ fun PlaygroundScreen(
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "點擊上方選擇模型或範本，開始連續對話與生圖測試",
+                            text = "開始連續對話與生圖測試",
                             fontSize = 13.sp,
                             color = AppColors.textSecondaryLight
                         )
@@ -229,13 +208,15 @@ fun PlaygroundScreen(
                 }
             }
 
-            // 4. 懸浮式底部輸入塢
+            // 4. 旗艦 Gemini 風格雙層底部輸入塢
             PlaygroundInputDock(
                 input = uiState.promptInput,
                 onInputChange = { viewModel.updatePromptInput(it) },
+                currentModelSpec = currentModelSpec,
                 isGenerating = uiState.isGenerating,
                 onSend = { viewModel.sendPlaygroundPrompt() },
                 onCancelGeneration = { viewModel.cancelPlaygroundGeneration() },
+                onOpenModelSheet = { showModelSheet = true },
                 onOpenTemplates = { showTemplateSheet = true }
             )
         }
