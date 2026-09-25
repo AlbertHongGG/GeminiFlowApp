@@ -24,8 +24,7 @@ import androidx.compose.material.icons.filled.PowerSettingsNew
 import com.geminiflow.app.presentation.notification.NotificationController
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
+import com.geminiflow.app.presentation.components.AppSwitch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -168,15 +167,9 @@ fun SettingsPage(
                     iconColor = AppColors.primary,
                     title = "開機自啟動",
                     trailing = {
-                        Switch(
+                        AppSwitch(
                             checked = uiState.autoStartOnBoot,
-                            onCheckedChange = { viewModel.setAutoStartOnBoot(it) },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = AppColors.surfaceLight,
-                                checkedTrackColor = AppColors.primary,
-                                uncheckedThumbColor = AppColors.surfaceLight,
-                                uncheckedTrackColor = AppColors.secondary.copy(alpha = 0.3f)
-                            )
+                            onCheckedChange = { viewModel.setAutoStartOnBoot(it) }
                         )
                     }
                 )
@@ -198,15 +191,9 @@ fun SettingsPage(
                     subtitle = "即時記錄 (${uiState.notificationLogsCount} 筆)",
                     onTap = onNavigateToNotificationLogs,
                     trailing = {
-                        Switch(
+                        AppSwitch(
                             checked = uiState.isNotificationLoggingEnabled,
-                            onCheckedChange = { viewModel.setNotificationLoggingEnabled(it) },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = AppColors.surfaceLight,
-                                checkedTrackColor = AppColors.primary,
-                                uncheckedThumbColor = AppColors.surfaceLight,
-                                uncheckedTrackColor = AppColors.secondary.copy(alpha = 0.3f)
-                            )
+                            onCheckedChange = { viewModel.setNotificationLoggingEnabled(it) }
                         )
                     }
                 )
@@ -218,15 +205,9 @@ fun SettingsPage(
                     subtitle = "即時記錄 (${uiState.apiLogsCount} 筆)",
                     onTap = onNavigateToAiLogs,
                     trailing = {
-                        Switch(
+                        AppSwitch(
                             checked = uiState.isApiLoggingEnabled,
-                            onCheckedChange = { viewModel.setApiLoggingEnabled(it) },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = AppColors.surfaceLight,
-                                checkedTrackColor = AppColors.primary,
-                                uncheckedThumbColor = AppColors.surfaceLight,
-                                uncheckedTrackColor = AppColors.secondary.copy(alpha = 0.3f)
-                            )
+                            onCheckedChange = { viewModel.setApiLoggingEnabled(it) }
                         )
                     }
                 )
