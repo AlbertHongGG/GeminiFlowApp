@@ -94,131 +94,137 @@ fun PlaygroundScreen(
     }
 
     ImmersiveScaffold {
-        Column(
+        Box(
             modifier = Modifier.fillMaxSize()
         ) {
-            Spacer(modifier = Modifier.height(28.dp))
-
-            // 1. 頂部標題區與功能按鈕組 (模型選擇與清空對話，純 icon 按鈕無文字)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "模型沙盒",
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = AppColors.textPrimaryLight,
-                        letterSpacing = (-0.5).sp
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "AI CHAT & IMAGE PLAYGROUND",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = AppColors.textSecondaryLight,
-                        letterSpacing = 1.5.sp
-                    )
-                }
-
-                // 清空對話純 icon 按鈕 (無文字，有對話時顯示)
-                if (uiState.playgroundMessages.isNotEmpty()) {
-                    IconButton(
-                        onClick = { viewModel.clearPlaygroundChat() },
-                        modifier = Modifier
-                            .size(38.dp)
-                            .background(Color(0xFFF1F5F9), CircleShape)
+            // 1. 固定背景層：空狀態提示鎖定於固定頂部視覺位置，絕對不隨軟鍵盤升降被擠壓或跳動
+            if (uiState.playgroundMessages.isEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 230.dp, start = 24.dp, end = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Surface(
+                        modifier = Modifier.size(56.dp),
+                        shape = CircleShape,
+                        color = Color(0xFF0F172A).copy(alpha = 0.06f)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.DeleteOutline,
-                            contentDescription = "清空對話",
-                            tint = AppColors.textSecondaryLight,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                modifier = Modifier.size(26.dp),
+                                tint = Color(0xFF0F172A)
+                            )
+                        }
                     }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    Text(
+                        text = "準備好開始測試了嗎？",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.textPrimaryLight
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "開始連續對話與生圖測試",
+                        fontSize = 13.sp,
+                        color = AppColors.textSecondaryLight
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // 2. 連續對話區域 (LensWise 連續對話流)
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
+            // 2. 前景互動層：標題區、對話流與底部 Gemini 雙層滿版面板
+            Column(
+                modifier = Modifier.fillMaxSize()
             ) {
-                if (uiState.playgroundMessages.isEmpty()) {
-                    // 雅緻寧靜的空狀態提示
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 24.dp),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Surface(
-                            modifier = Modifier.size(52.dp),
-                            shape = CircleShape,
-                            color = Color(0xFF0F172A).copy(alpha = 0.06f)
+                Spacer(modifier = Modifier.height(28.dp))
+
+                // 頂部標題區與功能按鈕組
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "模型沙盒",
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = AppColors.textPrimaryLight,
+                            letterSpacing = (-0.5).sp
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "AI CHAT & IMAGE PLAYGROUND",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AppColors.textSecondaryLight,
+                            letterSpacing = 1.5.sp
+                        )
+                    }
+
+                    // 清空對話純 icon 按鈕 (無文字，有對話時顯示)
+                    if (uiState.playgroundMessages.isNotEmpty()) {
+                        IconButton(
+                            onClick = { viewModel.clearPlaygroundChat() },
+                            modifier = Modifier
+                                .size(38.dp)
+                                .background(Color(0xFFF1F5F9), CircleShape)
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.AutoAwesome,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(24.dp),
-                                    tint = Color(0xFF0F172A)
-                                )
+                            Icon(
+                                imageVector = Icons.Default.DeleteOutline,
+                                contentDescription = "清空對話",
+                                tint = AppColors.textSecondaryLight,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // 連續對話區域 (有訊息時渲染 LazyColumn，可隨鍵盤自適應滾動)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                ) {
+                    if (uiState.playgroundMessages.isNotEmpty()) {
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(uiState.playgroundMessages, key = { it.id }) { message ->
+                                PlaygroundChatBubble(message = message)
+                            }
+                            item {
+                                Spacer(modifier = Modifier.height(10.dp))
                             }
                         }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Text(
-                            text = "準備好開始測試了嗎？",
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = AppColors.textPrimaryLight
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "開始連續對話與生圖測試",
-                            fontSize = 13.sp,
-                            color = AppColors.textSecondaryLight
-                        )
-                    }
-                } else {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(uiState.playgroundMessages, key = { it.id }) { message ->
-                            PlaygroundChatBubble(message = message)
-                        }
-                        item {
-                            Spacer(modifier = Modifier.height(10.dp))
-                        }
                     }
                 }
-            }
 
-            // 4. 旗艦 Gemini 風格雙層底部輸入塢
-            PlaygroundInputDock(
-                input = uiState.promptInput,
-                onInputChange = { viewModel.updatePromptInput(it) },
-                currentModelSpec = currentModelSpec,
-                isGenerating = uiState.isGenerating,
-                onSend = { viewModel.sendPlaygroundPrompt() },
-                onCancelGeneration = { viewModel.cancelPlaygroundGeneration() },
-                onOpenModelSheet = { showModelSheet = true },
-                onOpenTemplates = { showTemplateSheet = true }
-            )
+                // 底部 Gemini 風格全寬滿版面板 (滿版貼底、40dp 對稱按鈕高度)
+                PlaygroundInputDock(
+                    input = uiState.promptInput,
+                    onInputChange = { viewModel.updatePromptInput(it) },
+                    currentModelSpec = currentModelSpec,
+                    isGenerating = uiState.isGenerating,
+                    onSend = { viewModel.sendPlaygroundPrompt() },
+                    onCancelGeneration = { viewModel.cancelPlaygroundGeneration() },
+                    onOpenModelSheet = { showModelSheet = true },
+                    onOpenTemplates = { showTemplateSheet = true }
+                )
+            }
         }
     }
 }
