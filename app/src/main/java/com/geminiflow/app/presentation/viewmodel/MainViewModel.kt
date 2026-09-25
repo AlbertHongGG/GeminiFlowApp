@@ -8,6 +8,7 @@ import com.geminiflow.app.GeminiFlowApplication
 import com.geminiflow.app.domain.model.ChatRequest
 import com.geminiflow.app.domain.model.PlaygroundChatMessage
 import com.geminiflow.app.domain.model.TrafficFilter
+import com.geminiflow.app.presentation.notification.NotificationController
 import com.geminiflow.app.service.BootReceiver
 import com.geminiflow.app.service.GeminiForegroundService
 import kotlinx.coroutines.Job
@@ -183,6 +184,10 @@ class MainViewModel : ViewModel() {
         if (currentState.isServerRunning) {
             GeminiForegroundService.stopService(context)
         } else {
+            if (!currentState.isAuthenticated) {
+                NotificationController.showWarning("尚未登入 Google 憑證，請至設定完成授權")
+                return
+            }
             GeminiForegroundService.startService(
                 context,
                 currentState.serverHost,
