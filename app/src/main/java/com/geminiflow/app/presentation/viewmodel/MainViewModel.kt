@@ -128,7 +128,7 @@ class MainViewModel : ViewModel() {
 
 
     // 導航核心控制方法 (SSOT)
-    fun selectTab(tab: com.geminiflow.app.presentation.components.AppTab) {
+    fun selectTab(tab: com.geminiflow.app.presentation.navigation.model.AppTab) {
         _uiState.update { it.copy(activeTab = tab) }
     }
 

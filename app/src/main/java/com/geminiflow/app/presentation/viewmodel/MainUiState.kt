@@ -4,7 +4,7 @@ import com.geminiflow.app.domain.model.PlaygroundChatMessage
 import com.geminiflow.app.domain.model.TrafficFilter
 import com.geminiflow.app.domain.model.TrafficLog
 
-import com.geminiflow.app.presentation.components.AppTab
+import com.geminiflow.app.presentation.navigation.model.AppTab
 import com.geminiflow.app.presentation.navigation.model.AppRoute
 
 data class MainUiState(

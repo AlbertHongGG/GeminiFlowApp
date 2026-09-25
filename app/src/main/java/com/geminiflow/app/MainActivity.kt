@@ -8,12 +8,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -23,18 +19,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
-import com.geminiflow.app.presentation.components.AnimatedFloatingTabBar
-import com.geminiflow.app.presentation.components.AppTab
+import com.geminiflow.app.presentation.navigation.components.HuggingCapsuleNavBar
 import com.geminiflow.app.presentation.navigation.components.CupertinoSwipeBackContainer
 import com.geminiflow.app.presentation.navigation.components.LocalCupertinoNavigator
 import com.geminiflow.app.presentation.navigation.model.AppRoute
+import com.geminiflow.app.presentation.navigation.model.AppTab
 import com.geminiflow.app.presentation.notification.GlobalNotificationOverlay
 import com.geminiflow.app.presentation.theme.GeminiFlowTheme
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
 import com.geminiflow.app.presentation.ui.AiLogViewerScreen
 import com.geminiflow.app.presentation.ui.ApiLogDetailScreen
 import com.geminiflow.app.presentation.ui.BatteryGuideBottomSheet
@@ -153,6 +152,7 @@ fun MainContainerScreen(
 ) {
     var showBatteryBottomSheet by rememberSaveable { mutableStateOf(false) }
     val uiState by viewModel.uiState.collectAsState()
+    val hazeState = remember { HazeState() }
 
     if (showBatteryBottomSheet) {
         BatteryGuideBottomSheet(
@@ -168,45 +168,49 @@ fun MainContainerScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // 主畫面視圖：於三大核心頁面間切換 (SSOT: uiState.activeTab)
-        AnimatedContent(
-            targetState = uiState.activeTab,
-            transitionSpec = {
-                (fadeIn(animationSpec = tween(220)) + scaleIn(initialScale = 0.98f, animationSpec = tween(220)))
-                    .togetherWith(fadeOut(animationSpec = tween(150)))
-            },
-            label = "threeTabsContent"
-        ) { tab ->
-            when (tab) {
-                AppTab.DASHBOARD -> {
-                    ServerHubScreen(
-                        viewModel = viewModel,
-                        onNavigateToLogin = onNavigateToLogin,
-                        onOpenBatteryGuide = { showBatteryBottomSheet = true },
-                        onNavigateToSettings = { viewModel.selectTab(AppTab.SETTINGS) }
-                    )
-                }
-                AppTab.SANDBOX -> {
-                    PlaygroundScreen(
-                        viewModel = viewModel
-                    )
-                }
-                AppTab.SETTINGS -> {
-                    SettingsPage(
-                        viewModel = viewModel,
-                        onNavigateToLogin = onNavigateToLogin,
-                        onOpenBatteryGuide = { showBatteryBottomSheet = true },
-                        onNavigateToAiLogs = onNavigateToAiLogs,
-                        onNavigateToNotificationLogs = onNavigateToNotificationLogs
-                    )
+        // 1. 三大核心頁面內容層：作為 Haze 毛玻璃取樣來源，採用高效輕量 Crossfade 杜絕重組掉幀
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .haze(hazeState)
+        ) {
+            Crossfade(
+                targetState = uiState.activeTab,
+                animationSpec = tween(180),
+                label = "threeTabsContent"
+            ) { tab ->
+                when (tab) {
+                    AppTab.DASHBOARD -> {
+                        ServerHubScreen(
+                            viewModel = viewModel,
+                            onNavigateToLogin = onNavigateToLogin,
+                            onOpenBatteryGuide = { showBatteryBottomSheet = true },
+                            onNavigateToSettings = { viewModel.selectTab(AppTab.SETTINGS) }
+                        )
+                    }
+                    AppTab.SANDBOX -> {
+                        PlaygroundScreen(
+                            viewModel = viewModel
+                        )
+                    }
+                    AppTab.SETTINGS -> {
+                        SettingsPage(
+                            viewModel = viewModel,
+                            onNavigateToLogin = onNavigateToLogin,
+                            onOpenBatteryGuide = { showBatteryBottomSheet = true },
+                            onNavigateToAiLogs = onNavigateToAiLogs,
+                            onNavigateToNotificationLogs = onNavigateToNotificationLogs
+                        )
+                    }
                 }
             }
         }
 
-        // 底部浮動導航欄 (SSOT: uiState.activeTab)
-        AnimatedFloatingTabBar(
+        // 2. 緊緻包裹正圓毛玻璃導航欄 (Apple VisionOS 晶透白瓷浮島風格)
+        HuggingCapsuleNavBar(
             selectedTab = uiState.activeTab,
             onTabSelected = { viewModel.selectTab(it) },
+            hazeState = hazeState,
             modifier = Modifier.align(Alignment.BottomCenter)
         )
     }

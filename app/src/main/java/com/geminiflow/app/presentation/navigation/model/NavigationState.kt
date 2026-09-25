@@ -1,6 +1,5 @@
 package com.geminiflow.app.presentation.navigation.model
 
-import com.geminiflow.app.presentation.components.AppTab
 
 /**
  * 全域導航狀態模型，作為單一真實來源 (Single Source of Truth)。
