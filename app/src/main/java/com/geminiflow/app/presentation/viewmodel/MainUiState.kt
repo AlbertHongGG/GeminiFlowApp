@@ -19,7 +19,6 @@ data class MainUiState(
     val isAuthenticated: Boolean = false,
     val isBatteryUnrestricted: Boolean = false,
     val autoStartOnBoot: Boolean = false,
-    val oemTips: String = "",
 
     // 快取與磁碟空間
     val cacheFilesCount: Int = 0,

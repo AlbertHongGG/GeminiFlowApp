@@ -49,14 +49,12 @@ class MainViewModel : ViewModel() {
         val host = prefs.getString("server_host", "127.0.0.1") ?: "127.0.0.1"
         val port = prefs.getInt("server_port", 5000)
         val autoStart = prefs.getBoolean(BootReceiver.PREF_KEY_AUTO_START, false)
-        val oemTips = batteryHelper.getOemGuidanceTips()
 
         _uiState.update {
             it.copy(
                 serverHost = host,
                 serverPort = port,
-                autoStartOnBoot = autoStart,
-                oemTips = oemTips
+                autoStartOnBoot = autoStart
             )
         }
     }
@@ -161,8 +159,8 @@ class MainViewModel : ViewModel() {
         batteryHelper.requestIgnoreBatteryOptimizations(activity)
     }
 
-    fun openOemAutoStartSettings(context: Context) {
-        batteryHelper.openOemAutoStartSettings(context)
+    fun openBatterySettings(context: Context) {
+        batteryHelper.openBatterySettings(context)
     }
 
     fun openAppDetailsSettings(context: Context) {

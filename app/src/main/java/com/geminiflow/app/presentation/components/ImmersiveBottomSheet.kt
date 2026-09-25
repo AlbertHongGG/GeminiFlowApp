@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,15 +35,16 @@ import androidx.compose.ui.unit.sp
 import com.geminiflow.app.presentation.theme.AppColors
 
 /**
- * 下拉式抽屜彈窗容器元件，提供圓角、自訂拖曳指示條、標題與頂部操作按鈕。
+ * 沉浸式下拉抽屜彈窗容器元件。
+ * 提供 32dp 頂部大圓角、純白底色、拖曳指示條、置中標題與彈性操作區。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImmersiveBottomSheet(
     title: String,
     onDismiss: () -> Unit,
-    onConfirm: () -> Unit,
     modifier: Modifier = Modifier,
+    trailingAction: (@Composable () -> Unit)? = null,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -81,22 +83,31 @@ fun ImmersiveBottomSheet(
 
                 Text(
                     text = title,
-                    fontSize = 14.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.5.sp,
+                    letterSpacing = 2.sp,
                     color = Color(0xFF64748B)
                 )
 
-                IconButton(
-                    onClick = onConfirm,
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.CheckCircle,
-                        contentDescription = "確認儲存",
-                        tint = Color(0xFF334155),
-                        modifier = Modifier.size(30.dp)
-                    )
+                if (trailingAction != null) {
+                    Box(
+                        modifier = Modifier.size(48.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        trailingAction()
+                    }
+                } else {
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = "關閉",
+                            tint = Color(0xFF64748B),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
             }
 
@@ -106,3 +117,36 @@ fun ImmersiveBottomSheet(
         }
     }
 }
+
+/**
+ * 適用於表單編輯的 ImmersiveBottomSheet 多載，右上角預設提供打勾確認按鈕。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ImmersiveBottomSheet(
+    title: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+    modifier: Modifier = Modifier,
+    sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    content: @Composable ColumnScope.() -> Unit
+) = ImmersiveBottomSheet(
+    title = title,
+    onDismiss = onDismiss,
+    trailingAction = {
+        IconButton(
+            onClick = onConfirm,
+            modifier = Modifier.size(48.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.CheckCircle,
+                contentDescription = "確認儲存",
+                tint = Color(0xFF334155),
+                modifier = Modifier.size(30.dp)
+            )
+        }
+    },
+    modifier = modifier,
+    sheetState = sheetState,
+    content = content
+)

@@ -154,12 +154,11 @@ fun MainContainerScreen(
     if (showBatteryBottomSheet) {
         BatteryGuideBottomSheet(
             isUnrestricted = uiState.isBatteryUnrestricted,
-            oemTips = uiState.oemTips,
             onRequestUnrestricted = {
                 viewModel.requestIgnoreBatteryOptimizations(activity)
             },
-            onOpenOemSettings = {
-                viewModel.openOemAutoStartSettings(activity)
+            onOpenBatterySettings = {
+                viewModel.openBatterySettings(activity)
             },
             onDismiss = {
                 showBatteryBottomSheet = false
