@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Refresh
@@ -26,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -35,6 +35,7 @@ import com.geminiflow.app.GeminiFlowApplication
 import com.geminiflow.app.data.auth.browser.AuthBrowserConfig
 import com.geminiflow.app.data.auth.browser.CookieBridge
 import com.geminiflow.app.data.auth.browser.SecureAuthWebViewSetup
+import com.geminiflow.app.presentation.components.EdgeSwipeBackDetector
 import com.geminiflow.app.presentation.theme.AccentBlue
 import com.geminiflow.app.presentation.theme.BorderLight
 import com.geminiflow.app.presentation.theme.SurfaceCard
@@ -65,27 +66,19 @@ fun GoogleAuthScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Google 帳號登入",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回",
-                            tint = TextPrimary
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = "Google 帳號登入",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
                         )
-                    }
-                },
-                actions = {
+                    },
+                    actions = {
                     IconButton(
                         onClick = {
                             useSafariUa = !useSafariUa
@@ -165,4 +158,11 @@ fun GoogleAuthScreen(
             }
         }
     }
+
+    // 最左邊緣右滑返回手勢監聽
+    EdgeSwipeBackDetector(
+        onNavigateBack = onNavigateBack,
+        modifier = Modifier.align(Alignment.CenterStart)
+    )
+}
 }

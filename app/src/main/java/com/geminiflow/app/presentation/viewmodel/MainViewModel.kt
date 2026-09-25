@@ -27,6 +27,8 @@ class MainViewModel : ViewModel() {
     private val batteryHelper = app.batteryOptimizationHelper
     private val streamChatUseCase = app.streamChatUseCase
     private val trafficLogManager = app.trafficLogManager
+    private val notificationLogManager = app.notificationLogManager
+    private val apiLogManager = app.apiLogManager
     private val imageStorageManager = app.imageStorageManager
 
     private val _uiState = MutableStateFlow(MainUiState())
@@ -40,6 +42,8 @@ class MainViewModel : ViewModel() {
         observeServerStatus()
         observeAuthStatus()
         observeTrafficLogs()
+        observeNotificationLogs()
+        observeApiLogs()
         refreshBatteryStatus()
         refreshCacheStats()
     }
@@ -49,12 +53,16 @@ class MainViewModel : ViewModel() {
         val host = prefs.getString("server_host", "127.0.0.1") ?: "127.0.0.1"
         val port = prefs.getInt("server_port", 5000)
         val autoStart = prefs.getBoolean(BootReceiver.PREF_KEY_AUTO_START, false)
+        val notifLogging = notificationLogManager.isLoggingEnabled()
+        val apiLogging = apiLogManager.isLoggingEnabled()
 
         _uiState.update {
             it.copy(
                 serverHost = host,
                 serverPort = port,
-                autoStartOnBoot = autoStart
+                autoStartOnBoot = autoStart,
+                isNotificationLoggingEnabled = notifLogging,
+                isApiLoggingEnabled = apiLogging
             )
         }
     }
@@ -118,6 +126,32 @@ class MainViewModel : ViewModel() {
                 _uiState.update { it.copy(trafficLogs = logs) }
             }
         }
+    }
+
+    private fun observeNotificationLogs() {
+        viewModelScope.launch {
+            notificationLogManager.logsFlow.collect { logs ->
+                _uiState.update { it.copy(notificationLogsCount = logs.size) }
+            }
+        }
+    }
+
+    private fun observeApiLogs() {
+        viewModelScope.launch {
+            apiLogManager.logsFlow.collect { logs ->
+                _uiState.update { it.copy(apiLogsCount = logs.size) }
+            }
+        }
+    }
+
+    fun setNotificationLoggingEnabled(enabled: Boolean) {
+        notificationLogManager.setLoggingEnabled(enabled)
+        _uiState.update { it.copy(isNotificationLoggingEnabled = enabled) }
+    }
+
+    fun setApiLoggingEnabled(enabled: Boolean) {
+        apiLogManager.setLoggingEnabled(enabled)
+        _uiState.update { it.copy(isApiLoggingEnabled = enabled) }
     }
 
     fun refreshBatteryStatus() {

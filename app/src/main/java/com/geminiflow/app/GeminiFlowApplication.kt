@@ -44,6 +44,12 @@ class GeminiFlowApplication : Application() {
         private set
     lateinit var trafficLogManager: com.geminiflow.app.data.storage.TrafficLogManager
         private set
+    lateinit var notificationLogManager: com.geminiflow.app.data.storage.NotificationLogManager
+        private set
+    lateinit var apiLogManager: com.geminiflow.app.data.storage.ApiLogManager
+        private set
+    lateinit var notificationController: com.geminiflow.app.presentation.notification.NotificationController
+        private set
     lateinit var ktorServer: KtorLocalServer
         private set
     lateinit var batteryOptimizationHelper: BatteryOptimizationHelper
@@ -69,6 +75,10 @@ class GeminiFlowApplication : Application() {
         sessionRepository = SessionPreferencesRepository(this)
         imageStorageManager = ImageStorageManager(this, okHttpClient, cookieHelper)
         trafficLogManager = com.geminiflow.app.data.storage.TrafficLogManager()
+        notificationLogManager = com.geminiflow.app.data.storage.NotificationLogManager(this)
+        apiLogManager = com.geminiflow.app.data.storage.ApiLogManager(this)
+        notificationController = com.geminiflow.app.presentation.notification.NotificationController(notificationLogManager)
+        com.geminiflow.app.presentation.notification.NotificationController.init(notificationController)
         geminiApiClient = GeminiApiClient(okHttpClient)
 
         ensureAuthUseCase = EnsureAuthUseCase(authRepository)
@@ -82,7 +92,8 @@ class GeminiFlowApplication : Application() {
         ktorServer = KtorLocalServer(
             streamChatUseCase = streamChatUseCase,
             imageStorageManager = imageStorageManager,
-            trafficLogManager = trafficLogManager
+            trafficLogManager = trafficLogManager,
+            apiLogManager = apiLogManager
         )
 
         batteryOptimizationHelper = BatteryOptimizationHelper(this)

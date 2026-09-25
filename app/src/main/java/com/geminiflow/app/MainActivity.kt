@@ -35,13 +35,16 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.geminiflow.app.presentation.components.AnimatedFloatingTabBar
 import com.geminiflow.app.presentation.components.AppTab
+import com.geminiflow.app.presentation.notification.GlobalNotificationOverlay
 import com.geminiflow.app.presentation.theme.GeminiFlowTheme
 import com.geminiflow.app.presentation.ui.AiLogViewerScreen
+import com.geminiflow.app.presentation.ui.ApiLogDetailScreen
 import com.geminiflow.app.presentation.ui.BatteryGuideBottomSheet
 import com.geminiflow.app.presentation.ui.GoogleAuthScreen
 import com.geminiflow.app.presentation.ui.PlaygroundScreen
 import com.geminiflow.app.presentation.ui.ServerHubScreen
 import com.geminiflow.app.presentation.ui.SettingsPage
+import com.geminiflow.app.presentation.ui.SystemNotificationLogScreen
 import com.geminiflow.app.presentation.viewmodel.MainViewModel
 
 class MainActivity : ComponentActivity() {
@@ -59,11 +62,13 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             GeminiFlowTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    AppNavigation(viewModel = viewModel, activity = this)
+                GlobalNotificationOverlay {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background
+                    ) {
+                        AppNavigation(viewModel = viewModel, activity = this)
+                    }
                 }
             }
         }
@@ -88,7 +93,9 @@ class MainActivity : ComponentActivity() {
 object Destinations {
     const val MAIN = "main"
     const val GOOGLE_AUTH = "google_auth"
+    const val NOTIFICATION_LOGS = "notification_logs"
     const val AI_LOGS = "ai_logs"
+    const val API_LOG_DETAIL = "api_log_detail"
 }
 
 @Composable
@@ -97,6 +104,7 @@ fun AppNavigation(
     activity: ComponentActivity
 ) {
     val navController = rememberNavController()
+    val app = GeminiFlowApplication.instance
 
     NavHost(
         navController = navController,
@@ -111,7 +119,8 @@ fun AppNavigation(
                 viewModel = viewModel,
                 activity = activity,
                 onNavigateToLogin = { navController.navigate(Destinations.GOOGLE_AUTH) },
-                onNavigateToAiLogs = { navController.navigate(Destinations.AI_LOGS) }
+                onNavigateToAiLogs = { navController.navigate(Destinations.AI_LOGS) },
+                onNavigateToNotificationLogs = { navController.navigate(Destinations.NOTIFICATION_LOGS) }
             )
         }
 
@@ -126,12 +135,39 @@ fun AppNavigation(
         }
 
         composable(
+            route = Destinations.NOTIFICATION_LOGS,
+            enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)) },
+            popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)) }
+        ) {
+            SystemNotificationLogScreen(
+                logManager = app.notificationLogManager,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
             route = Destinations.AI_LOGS,
             enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)) },
             popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)) }
         ) {
             AiLogViewerScreen(
-                viewModel = viewModel,
+                apiLogManager = app.apiLogManager,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToDetail = { rawJson ->
+                    navController.currentBackStackEntry?.savedStateHandle?.set("rawJson", rawJson)
+                    navController.navigate(Destinations.API_LOG_DETAIL)
+                }
+            )
+        }
+
+        composable(
+            route = Destinations.API_LOG_DETAIL,
+            enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)) },
+            popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)) }
+        ) {
+            val rawJson = navController.previousBackStackEntry?.savedStateHandle?.get<String>("rawJson") ?: "{}"
+            ApiLogDetailScreen(
+                rawJson = rawJson,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -144,7 +180,8 @@ fun MainContainerScreen(
     viewModel: MainViewModel,
     activity: ComponentActivity,
     onNavigateToLogin: () -> Unit,
-    onNavigateToAiLogs: () -> Unit
+    onNavigateToAiLogs: () -> Unit,
+    onNavigateToNotificationLogs: () -> Unit
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(AppTab.DASHBOARD) }
     var showBatteryBottomSheet by rememberSaveable { mutableStateOf(false) }
@@ -193,7 +230,8 @@ fun MainContainerScreen(
                         viewModel = viewModel,
                         onNavigateToLogin = onNavigateToLogin,
                         onOpenBatteryGuide = { showBatteryBottomSheet = true },
-                        onNavigateToAiLogs = onNavigateToAiLogs
+                        onNavigateToAiLogs = onNavigateToAiLogs,
+                        onNavigateToNotificationLogs = onNavigateToNotificationLogs
                     )
                 }
             }

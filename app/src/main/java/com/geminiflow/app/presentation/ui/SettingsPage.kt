@@ -19,7 +19,9 @@ import androidx.compose.material.icons.filled.DataObject
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import com.geminiflow.app.presentation.notification.NotificationController
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
@@ -60,7 +62,8 @@ fun SettingsPage(
     viewModel: MainViewModel,
     onNavigateToLogin: () -> Unit,
     onOpenBatteryGuide: () -> Unit,
-    onNavigateToAiLogs: () -> Unit
+    onNavigateToAiLogs: () -> Unit,
+    onNavigateToNotificationLogs: () -> Unit
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
@@ -77,7 +80,7 @@ fun SettingsPage(
                 val port = portInput.toIntOrNull() ?: 5000
                 viewModel.updateServerConfig(hostInput.trim(), port)
                 showNetworkBottomSheet = false
-                Toast.makeText(context, "網路設定已儲存（重啟後生效）", Toast.LENGTH_SHORT).show()
+                NotificationController.showSuccess("網路設定已儲存（重啟後生效）")
             }
         ) {
             OutlinedTextField(
@@ -189,11 +192,43 @@ fun SettingsPage(
 
             SettingsSection(title = "AI 引擎與日誌") {
                 SettingsTile(
+                    icon = Icons.Default.Notifications,
+                    iconColor = AppColors.primary,
+                    title = "系統通知日誌",
+                    subtitle = "即時記錄 (${uiState.notificationLogsCount} 筆)",
+                    onTap = onNavigateToNotificationLogs,
+                    trailing = {
+                        Switch(
+                            checked = uiState.isNotificationLoggingEnabled,
+                            onCheckedChange = { viewModel.setNotificationLoggingEnabled(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = AppColors.surfaceLight,
+                                checkedTrackColor = AppColors.primary,
+                                uncheckedThumbColor = AppColors.surfaceLight,
+                                uncheckedTrackColor = AppColors.secondary.copy(alpha = 0.3f)
+                            )
+                        )
+                    }
+                )
+                SettingsDivider()
+                SettingsTile(
                     icon = Icons.Default.DataObject,
                     iconColor = AppColors.primary,
-                    title = "請求穿透日誌",
-                    subtitle = "即時記錄 (${uiState.trafficLogs.size} 筆)",
-                    onTap = onNavigateToAiLogs
+                    title = "API 請求日誌",
+                    subtitle = "即時記錄 (${uiState.apiLogsCount} 筆)",
+                    onTap = onNavigateToAiLogs,
+                    trailing = {
+                        Switch(
+                            checked = uiState.isApiLoggingEnabled,
+                            onCheckedChange = { viewModel.setApiLoggingEnabled(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = AppColors.surfaceLight,
+                                checkedTrackColor = AppColors.primary,
+                                uncheckedThumbColor = AppColors.surfaceLight,
+                                uncheckedTrackColor = AppColors.secondary.copy(alpha = 0.3f)
+                            )
+                        )
+                    }
                 )
                 SettingsDivider()
                 SettingsTile(
@@ -206,7 +241,7 @@ fun SettingsPage(
                             text = "清空快取",
                             onClick = {
                                 viewModel.clearCache()
-                                Toast.makeText(context, "已清空所有暫存快取圖片", Toast.LENGTH_SHORT).show()
+                                NotificationController.showSuccess("已清空所有暫存快取圖片")
                             },
                             variant = GfButtonVariant.Secondary,
                             height = 34.dp,

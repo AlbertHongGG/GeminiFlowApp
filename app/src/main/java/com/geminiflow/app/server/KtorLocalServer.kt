@@ -2,6 +2,9 @@ package com.geminiflow.app.server
 
 import android.util.Base64
 import android.util.Log
+import org.json.JSONArray
+import org.json.JSONObject
+import com.geminiflow.app.data.storage.ApiLogManager
 import com.geminiflow.app.data.storage.ImageStorageManager
 import com.geminiflow.app.data.storage.TrafficLogManager
 import com.geminiflow.app.domain.model.AuthenticationRequiredException
@@ -49,7 +52,8 @@ import java.util.concurrent.atomic.AtomicLong
 class KtorLocalServer(
     private val streamChatUseCase: StreamChatUseCase,
     private val imageStorageManager: ImageStorageManager,
-    private val trafficLogManager: TrafficLogManager
+    private val trafficLogManager: TrafficLogManager,
+    private val apiLogManager: ApiLogManager
 ) {
     companion object {
         private const val TAG = "KtorLocalServer"
@@ -214,16 +218,34 @@ class KtorLocalServer(
                                 HttpStatusCode.OK,
                                 ChatResponseDto(text = fullText, images = imagesSaved)
                             )
+                            val duration = System.currentTimeMillis() - t0
                             trafficLogManager.record(
                                 TrafficLog(
                                     method = "POST",
                                     path = "/chat",
                                     statusCode = 200,
-                                    durationMs = System.currentTimeMillis() - t0,
+                                    durationMs = duration,
                                     clientIp = clientIp,
                                     promptSummary = promptSummary,
                                     responseSummary = fullText.take(120)
                                 )
+                            )
+                            val reqJson = JSONObject().apply {
+                                put("model", requestDto.model)
+                                put("prompt", requestDto.prompt)
+                                if (!requestDto.systemPrompt.isNullOrEmpty()) put("system_prompt", requestDto.systemPrompt)
+                                if (requestDto.sessionId != null) put("session_id", requestDto.sessionId)
+                                if (requestDto.images.isNotEmpty()) put("images_count", requestDto.images.size)
+                            }
+                            val respJson = JSONObject().apply {
+                                put("text", fullText)
+                                put("images", JSONArray(imagesSaved))
+                            }
+                            apiLogManager.logInteraction(
+                                agentName = "AiChat",
+                                durationMs = duration,
+                                request = reqJson,
+                                response = respJson
                             )
                         } catch (e: AuthenticationRequiredException) {
                             call.respond(HttpStatusCode.Unauthorized, ErrorResponseDto(e.message ?: "未授權"))
@@ -314,16 +336,32 @@ class KtorLocalServer(
 
                                     write("event: done\ndata: {}\n\n")
                                     flush()
+                                    val streamDuration = System.currentTimeMillis() - t0
                                     trafficLogManager.record(
                                         TrafficLog(
                                             method = "POST",
                                             path = "/stream",
                                             statusCode = 200,
-                                            durationMs = System.currentTimeMillis() - t0,
+                                            durationMs = streamDuration,
                                             clientIp = clientIp,
                                             promptSummary = promptSummary,
                                             responseSummary = "SSE Stream Complete"
                                         )
+                                    )
+                                    val reqJson = JSONObject().apply {
+                                        put("model", requestDto.model)
+                                        put("prompt", requestDto.prompt)
+                                        if (!requestDto.systemPrompt.isNullOrEmpty()) put("system_prompt", requestDto.systemPrompt)
+                                        if (requestDto.sessionId != null) put("session_id", requestDto.sessionId)
+                                    }
+                                    val respJson = JSONObject().apply {
+                                        put("status", "SSE Stream Complete")
+                                    }
+                                    apiLogManager.logInteraction(
+                                        agentName = "AiChat",
+                                        durationMs = streamDuration,
+                                        request = reqJson,
+                                        response = respJson
                                     )
                                 } catch (e: AuthenticationRequiredException) {
                                     val err = buildJsonObject {

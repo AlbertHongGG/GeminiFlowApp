@@ -24,9 +24,13 @@ data class MainUiState(
     val cacheFilesCount: Int = 0,
     val cacheSizeBytes: Long = 0L,
 
-    // 網路流量監控
+    // 網路流量與日誌監控
     val trafficLogs: List<TrafficLog> = emptyList(),
     val trafficFilter: TrafficFilter = TrafficFilter.ALL,
+    val isNotificationLoggingEnabled: Boolean = true,
+    val notificationLogsCount: Int = 0,
+    val isApiLoggingEnabled: Boolean = true,
+    val apiLogsCount: Int = 0,
 
     // 互動沙盒
     val selectedModel: String = "gemini-3-pro",
