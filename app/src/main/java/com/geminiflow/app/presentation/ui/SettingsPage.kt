@@ -188,7 +188,6 @@ fun SettingsPage(
                     icon = Icons.Default.Notifications,
                     iconColor = AppColors.primary,
                     title = "系統通知日誌",
-                    subtitle = "即時記錄 (${uiState.notificationLogsCount} 筆)",
                     onTap = onNavigateToNotificationLogs,
                     trailing = {
                         AppSwitch(
@@ -202,7 +201,6 @@ fun SettingsPage(
                     icon = Icons.Default.DataObject,
                     iconColor = AppColors.primary,
                     title = "API 請求日誌",
-                    subtitle = "即時記錄 (${uiState.apiLogsCount} 筆)",
                     onTap = onNavigateToAiLogs,
                     trailing = {
                         AppSwitch(
