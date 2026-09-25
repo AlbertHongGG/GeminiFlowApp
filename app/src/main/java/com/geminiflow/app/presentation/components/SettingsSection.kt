@@ -1,5 +1,7 @@
 package com.geminiflow.app.presentation.components
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -18,6 +20,7 @@ import com.geminiflow.app.presentation.theme.AppColors
 
 /**
  * 設定分組區塊，提供圓角卡片容器與分組標題。
+ * 100% 復刻 LensWise 的 SettingsSection 陰影與卡片視覺層次。
  */
 @Composable
 fun SettingsSection(
@@ -25,6 +28,8 @@ fun SettingsSection(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
+    val isDark = isSystemInDarkTheme()
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -35,7 +40,7 @@ fun SettingsSection(
                 text = title,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = AppColors.textSecondaryLight,
+                color = if (isDark) Color.White.copy(alpha = 0.54f) else Color(0xFF64748B),
                 letterSpacing = 1.2.sp,
                 modifier = Modifier.padding(start = 16.dp, bottom = 8.dp, top = 22.dp)
             )
@@ -45,13 +50,17 @@ fun SettingsSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .shadow(
-                    elevation = 4.dp,
+                    elevation = 8.dp,
                     shape = RoundedCornerShape(16.dp),
-                    spotColor = Color.Black.copy(alpha = 0.04f),
-                    ambientColor = Color.Black.copy(alpha = 0.03f)
+                    spotColor = if (isDark) Color.Black.copy(alpha = 0.40f) else Color.Black.copy(alpha = 0.14f),
+                    ambientColor = if (isDark) Color.Black.copy(alpha = 0.25f) else Color.Black.copy(alpha = 0.06f)
                 ),
             shape = RoundedCornerShape(16.dp),
-            color = AppColors.surfaceLight
+            color = if (isDark) Color(0xFF1E1E1E) else Color.White,
+            border = BorderStroke(
+                width = 1.dp,
+                color = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.04f)
+            )
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 content()
@@ -65,9 +74,10 @@ fun SettingsSection(
  */
 @Composable
 fun SettingsDivider() {
+    val isDark = isSystemInDarkTheme()
     HorizontalDivider(
         modifier = Modifier.padding(start = 56.dp, end = 16.dp),
         thickness = 1.dp,
-        color = Color.Black.copy(alpha = 0.06f)
+        color = if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.06f)
     )
 }

@@ -1,5 +1,6 @@
 package com.geminiflow.app.presentation.components
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,14 +14,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.geminiflow.app.presentation.theme.AppColors
 
 /**
  * 頁面頂部配置標題區塊，包含主標題、副標題與背景裝飾 ThinkingOrb。
+ * 100% 復刻 LensWise 的 PremiumConfigHeader 排版與字級間距。
  */
 @Composable
 fun PremiumConfigHeader(
@@ -29,10 +35,12 @@ fun PremiumConfigHeader(
     modifier: Modifier = Modifier,
     trailing: (@Composable () -> Unit)? = null
 ) {
+    val isDark = isSystemInDarkTheme()
+
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 24.dp, end = 16.dp, top = 38.dp, bottom = 24.dp)
+            .padding(start = 24.dp, end = 16.dp, top = 36.dp, bottom = 20.dp)
     ) {
         // 裝飾用 ThinkingOrb：設定佈局尺寸為 (0, 0)，避免影響父容器高度計算
         Box(
@@ -49,9 +57,9 @@ fun PremiumConfigHeader(
                         )
                     }
                 }
-                .alpha(0.20f)
+                .alpha(if (isDark) 0.25f else 0.15f)
         ) {
-            ThinkingOrb(size = 150.dp, isDark = false)
+            ThinkingOrb(size = 150.dp, isDark = isDark)
         }
 
         Row(
@@ -61,19 +69,34 @@ fun PremiumConfigHeader(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    fontSize = 34.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = AppColors.textPrimaryLight,
-                    letterSpacing = (-0.5).sp,
-                    lineHeight = 38.sp
+                    style = TextStyle(
+                        fontSize = 34.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (isDark) Color.White else AppColors.textPrimaryLight,
+                        letterSpacing = (-0.5).sp,
+                        lineHeight = 36.sp,
+                        platformStyle = PlatformTextStyle(includeFontPadding = false),
+                        lineHeightStyle = LineHeightStyle(
+                            alignment = LineHeightStyle.Alignment.Center,
+                            trim = LineHeightStyle.Trim.Both
+                        )
+                    )
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = subtitle.uppercase(),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.textSecondaryLight,
-                    letterSpacing = 1.5.sp
+                    style = TextStyle(
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isDark) Color.White.copy(alpha = 0.54f) else Color.Black.copy(alpha = 0.54f),
+                        letterSpacing = 1.5.sp,
+                        lineHeight = 14.sp,
+                        platformStyle = PlatformTextStyle(includeFontPadding = false),
+                        lineHeightStyle = LineHeightStyle(
+                            alignment = LineHeightStyle.Alignment.Center,
+                            trim = LineHeightStyle.Trim.Both
+                        )
+                    )
                 )
             }
 
