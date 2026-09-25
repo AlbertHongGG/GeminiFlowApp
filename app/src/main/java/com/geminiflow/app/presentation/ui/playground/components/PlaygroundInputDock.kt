@@ -22,7 +22,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -121,40 +120,20 @@ fun PlaygroundInputDock(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 左側工具群組 (擴充 [+] 與 提示詞調校 [Tune])
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                // 左側工具按鈕 (僅保留 [+] 並放大圖標)
+                IconButton(
+                    onClick = onOpenTemplates,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color.Transparent)
                 ) {
-                    IconButton(
-                        onClick = onOpenTemplates,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(Color.Transparent)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "擴充工具與範本",
-                            tint = Color(0xFF475569),
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-
-                    IconButton(
-                        onClick = onOpenTemplates,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(Color.Transparent)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Tune,
-                            contentDescription = "提示詞範本庫與設定",
-                            tint = Color(0xFF475569),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "擴充工具與範本",
+                        tint = Color(0xFF475569),
+                        modifier = Modifier.size(26.dp)
+                    )
                 }
 
                 // 右側操作群組 (模型切換膠囊 與 發送按鈕，高度嚴格一致 40dp)
@@ -162,11 +141,11 @@ fun PlaygroundInputDock(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Gemini 原生風格模型切換膠囊 (高度 40dp，與發送按鈕完全同高)
+                    // Gemini 原生風格模型切換膠囊 (改為純白底色，高度 40dp)
                     Surface(
                         onClick = onOpenModelSheet,
                         shape = RoundedCornerShape(20.dp),
-                        color = Color(0xFFF8FAFC),
+                        color = Color.White,
                         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                         modifier = Modifier.height(40.dp)
                     ) {
