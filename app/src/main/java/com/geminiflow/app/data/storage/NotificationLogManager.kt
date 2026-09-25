@@ -148,9 +148,16 @@ class NotificationLogManager(private val context: Context) {
     suspend fun clearLog(file: File) = withContext(Dispatchers.IO) {
         try {
             if (file.exists()) {
-                file.delete()
+                val deleted = file.delete()
+                Log.d(TAG, "clearLog: ${file.name}, deleted=$deleted")
             }
-            reload()
+            // 立即過濾已刪除檔案，確保 UI 零延遲即刻響應
+            _logsFlow.value = _logsFlow.value.filter {
+                it.file.absolutePath != file.absolutePath && it.id != file.name
+            }
+            // 重新讀取磁碟校驗
+            val entries = loadAllEntries()
+            _logsFlow.value = entries
         } catch (e: Exception) {
             Log.e(TAG, "Failed to delete log file: ${e.message}", e)
         }
@@ -161,10 +168,21 @@ class NotificationLogManager(private val context: Context) {
      */
     suspend fun clearAllLogs() = withContext(Dispatchers.IO) {
         try {
-            logDir.listFiles()?.forEach { it.delete() }
-            reload()
+            if (logDir.exists()) {
+                logDir.listFiles()?.forEach { f ->
+                    try {
+                        if (f.isDirectory) f.deleteRecursively() else f.delete()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to delete ${f.name}: ${e.message}")
+                    }
+                }
+            }
+            // 徹底清除狀態，確保 UI 即刻響應空列表
+            _logsFlow.value = emptyList()
+            Log.d(TAG, "clearAllLogs: all notification logs cleared cleanly")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to clear all logs: ${e.message}", e)
+            _logsFlow.value = emptyList()
         }
     }
 }

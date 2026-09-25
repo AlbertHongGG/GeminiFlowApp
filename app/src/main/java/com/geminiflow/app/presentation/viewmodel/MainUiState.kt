@@ -28,9 +28,7 @@ data class MainUiState(
     val trafficLogs: List<TrafficLog> = emptyList(),
     val trafficFilter: TrafficFilter = TrafficFilter.ALL,
     val isNotificationLoggingEnabled: Boolean = true,
-    val notificationLogsCount: Int = 0,
     val isApiLoggingEnabled: Boolean = true,
-    val apiLogsCount: Int = 0,
 
     // 互動沙盒
     val selectedModel: String = "gemini-3-pro",

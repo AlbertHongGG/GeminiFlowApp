@@ -42,8 +42,6 @@ class MainViewModel : ViewModel() {
         observeServerStatus()
         observeAuthStatus()
         observeTrafficLogs()
-        observeNotificationLogs()
-        observeApiLogs()
         refreshBatteryStatus()
         refreshCacheStats()
     }
@@ -128,21 +126,6 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    private fun observeNotificationLogs() {
-        viewModelScope.launch {
-            notificationLogManager.logsFlow.collect { logs ->
-                _uiState.update { it.copy(notificationLogsCount = logs.size) }
-            }
-        }
-    }
-
-    private fun observeApiLogs() {
-        viewModelScope.launch {
-            apiLogManager.logsFlow.collect { logs ->
-                _uiState.update { it.copy(apiLogsCount = logs.size) }
-            }
-        }
-    }
 
     fun setNotificationLoggingEnabled(enabled: Boolean) {
         notificationLogManager.setLoggingEnabled(enabled)

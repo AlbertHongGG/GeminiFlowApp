@@ -148,10 +148,10 @@ fun <T> Modifier.draggableToTrash(
                     val trashBounds = state.trashBoundsInWindow
                     val isHovering = if (trashBounds != Rect.Zero) {
                         val expandedTrash = Rect(
-                            left = trashBounds.left - 60f,
-                            top = trashBounds.top - 60f,
-                            right = trashBounds.right + 60f,
-                            bottom = trashBounds.bottom + 60f
+                            left = trashBounds.left - 160f,
+                            top = trashBounds.top - 160f,
+                            right = trashBounds.right + 160f,
+                            bottom = trashBounds.bottom + 160f
                         )
                         val cardTopLeft = state.dragPositionInWindow - state.touchOffsetInItem
                         val cardRight = cardTopLeft.x + state.itemSize.x
@@ -168,7 +168,7 @@ fun <T> Modifier.draggableToTrash(
                             (state.dragPositionInWindow.y - trashCenter.y).toDouble()
                         ).toFloat()
 
-                        fingerInTrash || cardOverlapsTrash || (dist < 220f)
+                        fingerInTrash || cardOverlapsTrash || (dist < 360f)
                     } else false
 
                     if (isHovering != state.isHoveringTrash) {
@@ -179,10 +179,12 @@ fun <T> Modifier.draggableToTrash(
                     }
                 },
                 onDragEnd = {
-                    Log.d(TAG, "onDragEnd: isHoveringTrash=${state.isHoveringTrash}, activeItem=${state.activeItem}")
-                    if (state.isHoveringTrash && state.activeItem == item) {
+                    val wasHovering = state.isHoveringTrash
+                    val droppedItem = state.activeItem ?: item
+                    Log.d(TAG, "onDragEnd: wasHovering=$wasHovering, droppedItem=$droppedItem")
+                    if (wasHovering && droppedItem != null) {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        state.onDropAction?.invoke(item)
+                        state.onDropAction?.invoke(droppedItem)
                     }
                     state.isDragging = false
                     state.activeItem = null

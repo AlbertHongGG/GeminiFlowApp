@@ -155,14 +155,14 @@ fun SwipeToObliterateButton(
                             }
                         },
                         onDragEnd = {
-                            if (animatableOffset.value >= maxDragPx * 0.95f) {
-                                // 達成 95% 抹除門檻：確認執行
+                            if (animatableOffset.value >= maxDragPx * 0.82f) {
+                                // 達成抹除門檻：立即確認執行
                                 isConfirmed = true
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 scope.launch {
-                                    animatableOffset.animateTo(maxDragPx)
-                                    onConfirmed()
+                                    animatableOffset.snapTo(maxDragPx)
                                 }
+                                onConfirmed()
                             } else {
                                 // 未達門檻：彈簧回彈至起點
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
