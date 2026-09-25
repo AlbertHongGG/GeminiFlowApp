@@ -3,8 +3,10 @@ package com.geminiflow.app.presentation.ui
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,13 +20,11 @@ import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.PowerSettingsNew
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -32,13 +32,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.material3.ExperimentalMaterial3Api
 import com.geminiflow.app.presentation.components.GfButton
 import com.geminiflow.app.presentation.components.GfButtonVariant
+import com.geminiflow.app.presentation.components.ImmersiveBottomSheet
 import com.geminiflow.app.presentation.components.ImmersiveScaffold
 import com.geminiflow.app.presentation.components.PremiumConfigHeader
 import com.geminiflow.app.presentation.components.SettingsDivider
@@ -50,6 +54,7 @@ import com.geminiflow.app.presentation.viewmodel.MainViewModel
 /**
  * 系統進階設定頁面。
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsPage(
     viewModel: MainViewModel,
@@ -60,68 +65,74 @@ fun SettingsPage(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
 
-    var showNetworkDialog by remember { mutableStateOf(false) }
+    var showNetworkBottomSheet by remember { mutableStateOf(false) }
     var hostInput by remember { mutableStateOf(uiState.serverHost) }
     var portInput by remember { mutableStateOf(uiState.serverPort.toString()) }
 
-    if (showNetworkDialog) {
-        AlertDialog(
-            onDismissRequest = { showNetworkDialog = false },
-            title = {
-                Text(
-                    text = "設定伺服器網路綁定",
+    if (showNetworkBottomSheet) {
+        ImmersiveBottomSheet(
+            title = "設定服務端點",
+            onDismiss = { showNetworkBottomSheet = false },
+            onConfirm = {
+                val port = portInput.toIntOrNull() ?: 5000
+                viewModel.updateServerConfig(hostInput.trim(), port)
+                showNetworkBottomSheet = false
+                Toast.makeText(context, "網路設定已儲存（重啟後生效）", Toast.LENGTH_SHORT).show()
+            }
+        ) {
+            OutlinedTextField(
+                value = hostInput,
+                onValueChange = { hostInput = it },
+                label = { Text("監聽 IP 位址", fontWeight = FontWeight.SemiBold, fontSize = 13.sp) },
+                placeholder = { Text("127.0.0.1 或 0.0.0.0") },
+                singleLine = true,
+                textStyle = TextStyle(
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
                     color = AppColors.textPrimaryLight
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = AppColors.primary,
+                    unfocusedBorderColor = Color(0xFF334155),
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    focusedLabelColor = AppColors.primary,
+                    unfocusedLabelColor = Color(0xFF475569),
+                    focusedTextColor = AppColors.textPrimaryLight,
+                    unfocusedTextColor = AppColors.textPrimaryLight
                 )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
-                        value = hostInput,
-                        onValueChange = { hostInput = it },
-                        label = { Text("監聽 IP 位址") },
-                        placeholder = { Text("127.0.0.1 或 0.0.0.0") },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AppColors.primary,
-                            unfocusedBorderColor = AppColors.secondary.copy(alpha = 0.3f)
-                        )
-                    )
-                    OutlinedTextField(
-                        value = portInput,
-                        onValueChange = { portInput = it },
-                        label = { Text("通訊埠 (Port)") },
-                        placeholder = { Text("5000") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AppColors.primary,
-                            unfocusedBorderColor = AppColors.secondary.copy(alpha = 0.3f)
-                        )
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val port = portInput.toIntOrNull() ?: 5000
-                        viewModel.updateServerConfig(hostInput.trim(), port)
-                        showNetworkDialog = false
-                        Toast.makeText(context, "網路設定已儲存（重啟後生效）", Toast.LENGTH_SHORT).show()
-                    }
-                ) {
-                    Text("儲存", color = AppColors.primary, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showNetworkDialog = false }) {
-                    Text("取消", color = AppColors.textSecondaryLight)
-                }
-            },
-            containerColor = AppColors.surfaceLight,
-            shape = RoundedCornerShape(16.dp)
-        )
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            OutlinedTextField(
+                value = portInput,
+                onValueChange = { portInput = it },
+                label = { Text("通訊埠 (Port)", fontWeight = FontWeight.SemiBold, fontSize = 13.sp) },
+                placeholder = { Text("5000") },
+                singleLine = true,
+                textStyle = TextStyle(
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = AppColors.textPrimaryLight
+                ),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = AppColors.primary,
+                    unfocusedBorderColor = Color(0xFF334155),
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    focusedLabelColor = AppColors.primary,
+                    unfocusedLabelColor = Color(0xFF475569),
+                    focusedTextColor = AppColors.textPrimaryLight,
+                    unfocusedTextColor = AppColors.textPrimaryLight
+                )
+            )
+        }
     }
 
     ImmersiveScaffold {
@@ -145,7 +156,7 @@ fun SettingsPage(
                     onTap = {
                         hostInput = uiState.serverHost
                         portInput = uiState.serverPort.toString()
-                        showNetworkDialog = true
+                        showNetworkBottomSheet = true
                     }
                 )
                 SettingsDivider()
