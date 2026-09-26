@@ -68,17 +68,9 @@ class ImageCacheViewerViewModel(application: Application) : AndroidViewModel(app
         }
     }
 
-    fun requestDeleteImage(item: CachedImageItem) {
-        _uiState.update { it.copy(imagePendingDelete = item) }
-    }
-
-    fun cancelDeleteImage() {
-        _uiState.update { it.copy(imagePendingDelete = null) }
-    }
-
     fun deleteImage(item: CachedImageItem) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isDeleting = true, imagePendingDelete = null) }
+            _uiState.update { it.copy(isDeleting = true) }
             val success = imageRepository.deleteCachedImage(item.filename)
             if (success) {
                 NotificationController.showSuccess("已刪除該快取圖片")

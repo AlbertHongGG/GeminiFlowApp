@@ -157,32 +157,24 @@ fun ImageDetailScreen(
             ) {
                 // Info 按鈕：展開下方詳細資訊抽屜面板
                 IconButton(
-                    onClick = { showInfoDrawer = true },
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.18f))
+                    onClick = { showInfoDrawer = true }
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Info,
                         contentDescription = "詳細資訊",
                         tint = Color.White,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                 }
 
                 // 下載/匯出按鈕
                 IconButton(
                     onClick = onDownload,
-                    enabled = !isExporting,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.18f))
+                    enabled = !isExporting
                 ) {
                     if (isExporting) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(20.dp),
                             color = Color.White,
                             strokeWidth = 2.dp
                         )
@@ -191,24 +183,20 @@ fun ImageDetailScreen(
                             imageVector = Icons.Outlined.FileDownload,
                             contentDescription = "儲存至相簿",
                             tint = Color.White,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                 }
 
                 // 刪除按鈕
                 IconButton(
-                    onClick = { showDeleteConfirmDialog = true },
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.18f))
+                    onClick = { showDeleteConfirmDialog = true }
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.DeleteOutline,
                         contentDescription = "刪除快取",
                         tint = AppColors.danger,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }

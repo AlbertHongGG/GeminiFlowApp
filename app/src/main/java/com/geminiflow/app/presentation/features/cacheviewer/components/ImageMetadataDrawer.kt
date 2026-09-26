@@ -1,6 +1,7 @@
 package com.geminiflow.app.presentation.features.cacheviewer.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
@@ -20,6 +22,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -27,6 +31,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.geminiflow.app.domain.model.cache.CachedImageItem
 import com.geminiflow.app.presentation.components.ImmersiveBottomSheet
+import com.geminiflow.app.presentation.notification.NotificationController
+import com.geminiflow.app.presentation.theme.AppColors
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,19 +63,21 @@ fun ImageMetadataDrawer(
         ) {
             Spacer(modifier = Modifier.height(2.dp))
 
-            MetadataItemRow(
+            // 檔案名稱：專屬全寬區塊，自動折行不截斷並支援複製
+            MetadataBlock(
                 label = "檔案名稱",
                 value = item.filename,
-                isMonospace = true
+                isMonospace = true,
+                copyLabel = "檔案名稱"
             )
 
-            HorizontalDivider(color = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f))
-
+            // 建立日期
             MetadataItemRow(
                 label = "建立日期",
                 value = item.formattedDate
             )
 
+            // AI 模型（若有則顯示）
             if (!item.modelName.isNullOrBlank()) {
                 HorizontalDivider(color = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f))
                 MetadataItemRow(
@@ -80,9 +88,10 @@ fun ImageMetadataDrawer(
 
             HorizontalDivider(color = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f))
 
+            // 統計卡片三欄位：解析度、大小、格式
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 if (item.width > 0 && item.height > 0) {
                     Box(modifier = Modifier.weight(1f)) {
@@ -106,13 +115,68 @@ fun ImageMetadataDrawer(
                 }
             }
 
-            HorizontalDivider(color = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f))
-
-            MetadataItemRow(
-                label = "儲存路徑",
+            // 儲存路徑：專屬全寬區塊，完整呈現路徑並支援一鍵複製
+            MetadataBlock(
+                label = "本機儲存路徑",
                 value = item.file.absolutePath,
                 isMonospace = true,
-                maxLines = 2
+                copyLabel = "儲存路徑"
+            )
+        }
+    }
+}
+
+@Composable
+private fun MetadataBlock(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    isMonospace: Boolean = false,
+    copyLabel: String? = null
+) {
+    val isDark = isSystemInDarkTheme()
+    val clipboardManager = LocalClipboardManager.current
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (isDark) Color.White.copy(alpha = 0.06f) else Color.Black.copy(alpha = 0.04f))
+            .padding(horizontal = 14.dp, vertical = 10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = if (isDark) Color.White.copy(alpha = 0.5f) else Color.Black.copy(alpha = 0.45f)
+            )
+            if (copyLabel != null) {
+                Text(
+                    text = "複製",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = AppColors.primary,
+                    modifier = Modifier.clickable {
+                        clipboardManager.setText(AnnotatedString(value))
+                        NotificationController.showSuccess("已複製 $copyLabel")
+                    }
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        SelectionContainer {
+            Text(
+                text = value,
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.Medium,
+                fontFamily = if (isMonospace) FontFamily.Monospace else FontFamily.Default,
+                color = if (isDark) Color.White.copy(alpha = 0.92f) else Color.Black.copy(alpha = 0.88f),
+                lineHeight = 17.sp
             )
         }
     }
@@ -123,8 +187,7 @@ private fun MetadataItemRow(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
-    isMonospace: Boolean = false,
-    maxLines: Int = 1
+    isMonospace: Boolean = false
 ) {
     val isDark = isSystemInDarkTheme()
     Row(
@@ -144,7 +207,7 @@ private fun MetadataItemRow(
             fontWeight = FontWeight.SemiBold,
             fontFamily = if (isMonospace) FontFamily.Monospace else FontFamily.Default,
             color = if (isDark) Color.White.copy(alpha = 0.9f) else Color.Black.copy(alpha = 0.85f),
-            maxLines = maxLines,
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
     }
@@ -162,7 +225,7 @@ private fun MetadataCompactCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(if (isDark) Color.White.copy(alpha = 0.06f) else Color.Black.copy(alpha = 0.04f))
-            .padding(vertical = 10.dp, horizontal = 8.dp),
+            .padding(vertical = 10.dp, horizontal = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -174,7 +237,7 @@ private fun MetadataCompactCard(
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = value,
-                fontSize = 13.sp,
+                fontSize = 12.5.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = if (isDark) Color.White else Color.Black.copy(alpha = 0.85f)
             )

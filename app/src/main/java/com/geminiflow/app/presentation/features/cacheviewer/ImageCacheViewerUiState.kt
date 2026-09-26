@@ -10,6 +10,5 @@ data class ImageCacheViewerUiState(
     val totalSizeBytes: Long = 0L,
     val totalSizeFormatted: String = "0 B",
     val isExporting: Boolean = false,
-    val isDeleting: Boolean = false,
-    val imagePendingDelete: CachedImageItem? = null
+    val isDeleting: Boolean = false
 )

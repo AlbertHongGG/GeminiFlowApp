@@ -15,16 +15,13 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Collections
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -135,53 +132,11 @@ fun ImageCacheViewerScreen(
                         ) { item ->
                             CachedImageGridItem(
                                 item = item,
-                                onClick = { onNavigateToDetail(item.filename) },
-                                onDownload = { viewModel.downloadImage(item) },
-                                onDelete = { viewModel.requestDeleteImage(item) }
+                                onClick = { onNavigateToDetail(item.filename) }
                             )
                         }
                     }
                 }
-            }
-
-            // 列表項目直接點擊垃圾桶時的刪除確認對話框
-            if (uiState.imagePendingDelete != null) {
-                val pending = uiState.imagePendingDelete!!
-                AlertDialog(
-                    onDismissRequest = { viewModel.cancelDeleteImage() },
-                    title = {
-                        Text(
-                            text = "確定刪除快取圖片？",
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    },
-                    text = {
-                        Text(
-                            text = "圖片「${pending.filename}」將從本機內部儲存空間永久刪除，無法復原。",
-                            fontSize = 14.sp,
-                            color = Color.Black.copy(alpha = 0.7f)
-                        )
-                    },
-                    confirmButton = {
-                        TextButton(
-                            onClick = { viewModel.deleteImage(pending) }
-                        ) {
-                            Text(
-                                text = "確認刪除",
-                                color = AppColors.danger,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(
-                            onClick = { viewModel.cancelDeleteImage() }
-                        ) {
-                            Text(text = "取消")
-                        }
-                    },
-                    shape = RoundedCornerShape(16.dp)
-                )
             }
         }
     }
