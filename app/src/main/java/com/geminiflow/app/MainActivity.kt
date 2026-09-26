@@ -9,6 +9,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -31,6 +36,7 @@ import com.geminiflow.app.presentation.features.server.ServerHubViewModel
 import com.geminiflow.app.presentation.features.settings.BatteryGuideBottomSheet
 import com.geminiflow.app.presentation.features.settings.SettingsPage
 import com.geminiflow.app.presentation.features.settings.SettingsViewModel
+import com.geminiflow.app.presentation.features.splash.SplashScreen
 import com.geminiflow.app.presentation.navigation.components.CupertinoSwipeBackContainer
 import com.geminiflow.app.presentation.navigation.contract.LocalCupertinoNavigator
 import com.geminiflow.app.presentation.navigation.model.AppRoute
@@ -50,6 +56,7 @@ class MainActivity : ComponentActivity() {
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        setTheme(R.style.Theme_GeminiFlowApp)
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
@@ -57,18 +64,35 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             GeminiFlowTheme {
-                GlobalNotificationOverlay {
-                    Surface(
-                        modifier = Modifier.fillMaxSize(),
-                        color = MaterialTheme.colorScheme.background
-                    ) {
-                        AppNavigation(
-                            mainViewModel = mainViewModel,
-                            serverHubViewModel = serverHubViewModel,
-                            playgroundViewModel = playgroundViewModel,
-                            settingsViewModel = settingsViewModel,
-                            activity = this
+                var showSplash by rememberSaveable { mutableStateOf(true) }
+
+                AnimatedContent(
+                    targetState = showSplash,
+                    transitionSpec = {
+                        fadeIn(animationSpec = tween(400)) togetherWith
+                            fadeOut(animationSpec = tween(400))
+                    },
+                    label = "splashTransition"
+                ) { isSplash ->
+                    if (isSplash) {
+                        SplashScreen(
+                            onAnimationFinished = { showSplash = false }
                         )
+                    } else {
+                        GlobalNotificationOverlay {
+                            Surface(
+                                modifier = Modifier.fillMaxSize(),
+                                color = MaterialTheme.colorScheme.background
+                            ) {
+                                AppNavigation(
+                                    mainViewModel = mainViewModel,
+                                    serverHubViewModel = serverHubViewModel,
+                                    playgroundViewModel = playgroundViewModel,
+                                    settingsViewModel = settingsViewModel,
+                                    activity = this@MainActivity
+                                )
+                            }
+                        }
                     }
                 }
             }

@@ -129,7 +129,7 @@ class GeminiForegroundService : Service() {
         return NotificationCompat.Builder(this, GeminiFlowApplication.CHANNEL_ID)
             .setContentTitle(getString(R.string.service_running_title))
             .setContentText(contentText)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.mipmap.ic_launcher)
             .setContentIntent(openAppPendingIntent)
             .addAction(
                 android.R.drawable.ic_menu_close_clear_cancel,
