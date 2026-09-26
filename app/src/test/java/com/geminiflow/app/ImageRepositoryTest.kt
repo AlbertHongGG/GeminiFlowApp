@@ -77,4 +77,37 @@ class ImageRepositoryTest {
         assertEquals("cross-site", recorded.header("Sec-Fetch-Site"))
         assertTrue(recorded.header("User-Agent")!!.contains("Mozilla"))
     }
+
+    @Test
+    fun testGetAllCachedImages_AndSingleDeletion() = kotlinx.coroutines.runBlocking {
+        val repository = ImageRepositoryImpl(
+            context = stubContext,
+            imagesDirProvider = { tempFolder.root }
+        )
+
+        val file1 = File(tempFolder.root, "20260901_120000_gemini-pro_generated.png")
+        file1.writeBytes(byteArrayOf(1, 2, 3, 4))
+        file1.setLastModified(1756700000000L)
+
+        val file2 = File(tempFolder.root, "20260915_150000_imagen-3_generated.png")
+        file2.writeBytes(byteArrayOf(5, 6, 7))
+        file2.setLastModified(1757900000000L)
+
+        val list = repository.getAllCachedImages()
+        assertEquals(2, list.size)
+        assertEquals("20260915_150000_imagen-3_generated.png", list[0].filename)
+        assertEquals("imagen-3", list[0].modelName)
+        assertEquals(3L, list[0].sizeBytes)
+
+        val deleted = repository.deleteCachedImage(file1.name)
+        assertTrue(deleted)
+
+        val remaining = repository.getAllCachedImages()
+        assertEquals(1, remaining.size)
+        assertEquals(file2.name, remaining[0].filename)
+
+        val (count, bytes) = repository.getCacheStats()
+        assertEquals(1, count)
+        assertEquals(3L, bytes)
+    }
 }

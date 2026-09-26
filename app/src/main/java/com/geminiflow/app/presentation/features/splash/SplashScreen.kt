@@ -39,8 +39,8 @@ import kotlin.math.roundToInt
 fun SplashScreen(
     onAnimationFinished: () -> Unit,
     modifier: Modifier = Modifier,
-    title: String = "M E K U R U",
-    subtitle: String = "COMICS"
+    title: String = "GEMINI FLOW",
+    subtitle: String = "LOCAL SERVER & PROXY"
 ) {
     val progress = remember { Animatable(0f) }
 
@@ -125,20 +125,20 @@ fun SplashScreen(
 
                     Text(
                         text = title,
-                        fontSize = 22.sp,
+                        fontSize = 20.sp,
                         fontWeight = FontWeight.Medium,
                         color = Color(0xFF1D1D1F),
-                        letterSpacing = 8.0.sp
+                        letterSpacing = 6.0.sp
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
                         text = subtitle,
-                        fontSize = 10.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Normal,
                         color = Color(0xFF86868B),
-                        letterSpacing = 4.0.sp
+                        letterSpacing = 3.0.sp
                     )
                 }
             }

@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
 import com.geminiflow.app.data.auth.CookieManagerHelper
+import com.geminiflow.app.data.media.AndroidMediaExporter
 import com.geminiflow.app.data.network.TrafficLoggingInterceptor
 import com.geminiflow.app.data.repository.AuthRepositoryImpl
 import com.geminiflow.app.data.repository.ChatRepositoryImpl
@@ -14,6 +15,7 @@ import com.geminiflow.app.data.repository.SessionRepositoryImpl
 import com.geminiflow.app.data.storage.ApiLogManager
 import com.geminiflow.app.data.storage.NotificationLogManager
 import com.geminiflow.app.data.storage.TrafficLogManager
+import com.geminiflow.app.domain.media.MediaExporter
 import com.geminiflow.app.domain.repository.AuthRepository
 import com.geminiflow.app.domain.repository.ChatRepository
 import com.geminiflow.app.domain.repository.ImageRepository
@@ -43,6 +45,8 @@ class GeminiFlowApplication : Application() {
     lateinit var sessionRepository: SessionRepository
         private set
     lateinit var imageRepository: ImageRepository
+        private set
+    lateinit var mediaExporter: MediaExporter
         private set
     lateinit var chatRepository: ChatRepository
         private set
@@ -86,6 +90,7 @@ class GeminiFlowApplication : Application() {
         authRepository = AuthRepositoryImpl(this, okHttpClient, cookieHelper)
         sessionRepository = SessionRepositoryImpl(this)
         imageRepository = ImageRepositoryImpl(this)
+        mediaExporter = AndroidMediaExporter(this)
         chatRepository = ChatRepositoryImpl(okHttpClient)
 
         notificationLogManager = NotificationLogManager(this)

@@ -1,12 +1,17 @@
 package com.geminiflow.app.data.repository
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.util.Log
 import com.geminiflow.app.data.api.GeminiConfig
 import com.geminiflow.app.data.network.WebkitCookieJar
+import com.geminiflow.app.domain.model.cache.CachedImageItem
 import com.geminiflow.app.domain.model.common.ImageDownloadException
 import com.geminiflow.app.domain.repository.ImageRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.withContext
 import okhttp3.CookieJar
 import okhttp3.OkHttpClient
@@ -28,7 +33,11 @@ class ImageRepositoryImpl(
     companion object {
         private const val TAG = "ImageRepositoryImpl"
         private const val IMAGES_DIR_NAME = "images"
+        private val GENERATED_FILE_REGEX = Regex("""^(\d{8}_\d{6})_(.+)_(?:generated|asset)\.[a-zA-Z0-9]+$""")
     }
+
+    private val _cacheInvalidationEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    override val cacheInvalidationEvents: SharedFlow<Unit> = _cacheInvalidationEvents.asSharedFlow()
 
     private val imagesDir: File by lazy {
         imagesDirProvider?.invoke() ?: File(context.filesDir, IMAGES_DIR_NAME).apply {
@@ -57,6 +66,7 @@ class ImageRepositoryImpl(
                 val base64Data = url.substringAfter("base64,")
                 val decodedBytes = java.util.Base64.getDecoder().decode(base64Data)
                 targetFile.writeBytes(decodedBytes)
+                _cacheInvalidationEvents.tryEmit(Unit)
                 return@withContext targetFile
             } catch (e: Exception) {
                 Log.e(TAG, "Base64 decode failed: ${e.message}", e)
@@ -111,6 +121,7 @@ class ImageRepositoryImpl(
                 tempFile.delete()
             }
 
+            _cacheInvalidationEvents.tryEmit(Unit)
             targetFile
         } catch (e: Exception) {
             tempFile.delete()
@@ -131,13 +142,64 @@ class ImageRepositoryImpl(
         return if (file.exists() && file.isFile && file.length() > 0) file else null
     }
 
+    override suspend fun getAllCachedImages(): List<CachedImageItem> = withContext(Dispatchers.IO) {
+        val files = imagesDir.listFiles()?.filter { it.isFile && it.length() > 0 } ?: emptyList()
+        val yearMonthFormat = SimpleDateFormat("yyyy-MM", Locale.US)
+        val yearMonthDisplayFormat = SimpleDateFormat("yyyy 年 M 月", Locale.TAIWAN)
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+
+        files.sortedByDescending { it.lastModified() }.map { file ->
+            val lastModified = file.lastModified()
+            val date = Date(lastModified)
+            val modelName = GENERATED_FILE_REGEX.matchEntire(file.name)?.groupValues?.getOrNull(2)
+
+            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(file.absolutePath, options)
+            val width = options.outWidth.coerceAtLeast(0)
+            val height = options.outHeight.coerceAtLeast(0)
+
+            CachedImageItem(
+                filename = file.name,
+                file = file,
+                sizeBytes = file.length(),
+                lastModifiedMillis = lastModified,
+                yearMonthKey = yearMonthFormat.format(date),
+                yearMonthDisplay = yearMonthDisplayFormat.format(date),
+                formattedDate = dateFormat.format(date),
+                modelName = modelName,
+                width = width,
+                height = height
+            )
+        }
+    }
+
+    override suspend fun deleteCachedImage(filename: String): Boolean = withContext(Dispatchers.IO) {
+        val safeFilename = File(filename).name
+        val file = File(imagesDir, safeFilename)
+        if (file.exists() && file.isFile) {
+            val deleted = file.delete()
+            if (deleted) {
+                _cacheInvalidationEvents.tryEmit(Unit)
+            }
+            deleted
+        } else {
+            false
+        }
+    }
+
     override suspend fun clearOldImages(maxAgeMillis: Long) {
         withContext(Dispatchers.IO) {
             val now = System.currentTimeMillis()
+            var deletedAny = false
             imagesDir.listFiles()?.forEach { file ->
                 if (file.isFile && (now - file.lastModified() > maxAgeMillis)) {
-                    file.delete()
+                    if (file.delete()) {
+                        deletedAny = true
+                    }
                 }
+            }
+            if (deletedAny) {
+                _cacheInvalidationEvents.tryEmit(Unit)
             }
         }
     }

@@ -41,4 +41,14 @@ sealed interface AppRoute {
     data class ApiLogDetail(val rawJson: String) : AppRoute {
         override val key: String = "route_api_log_detail_${rawJson.hashCode()}"
     }
+
+    /** 圖床快取檢視器畫面 */
+    data object ImageCacheViewer : AppRoute {
+        override val key: String = "route_image_cache_viewer"
+    }
+
+    /** 單張圖片全螢幕檢視與詳細資訊畫面 */
+    data class ImageDetail(val filename: String) : AppRoute {
+        override val key: String = "route_image_detail_$filename"
+    }
 }

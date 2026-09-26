@@ -21,11 +21,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import com.geminiflow.app.presentation.features.auth.GoogleAuthScreen
+import com.geminiflow.app.presentation.features.cacheviewer.ImageCacheViewerScreen
+import com.geminiflow.app.presentation.features.cacheviewer.ImageCacheViewerViewModel
+import com.geminiflow.app.presentation.features.cacheviewer.ImageDetailScreen
 import com.geminiflow.app.presentation.features.log.AiLogViewerScreen
 import com.geminiflow.app.presentation.features.log.ApiLogDetailScreen
 import com.geminiflow.app.presentation.features.log.SystemNotificationLogScreen
@@ -50,6 +54,7 @@ class MainActivity : ComponentActivity() {
     private val serverHubViewModel: ServerHubViewModel by viewModels()
     private val playgroundViewModel: PlaygroundViewModel by viewModels()
     private val settingsViewModel: SettingsViewModel by viewModels()
+    private val imageCacheViewerViewModel: ImageCacheViewerViewModel by viewModels()
 
     private val requestNotificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
@@ -89,6 +94,7 @@ class MainActivity : ComponentActivity() {
                                     serverHubViewModel = serverHubViewModel,
                                     playgroundViewModel = playgroundViewModel,
                                     settingsViewModel = settingsViewModel,
+                                    imageCacheViewerViewModel = imageCacheViewerViewModel,
                                     activity = this@MainActivity
                                 )
                             }
@@ -122,6 +128,7 @@ fun AppNavigation(
     serverHubViewModel: ServerHubViewModel,
     playgroundViewModel: PlaygroundViewModel,
     settingsViewModel: SettingsViewModel,
+    imageCacheViewerViewModel: ImageCacheViewerViewModel,
     activity: ComponentActivity
 ) {
     val app = GeminiFlowApplication.instance
@@ -167,7 +174,8 @@ fun AppNavigation(
                     onNavigateToLogin = { navigator.push(AppRoute.GoogleAuth) },
                     onOpenBatteryGuide = { showBatteryBottomSheet = true },
                     onNavigateToAiLogs = { navigator.push(AppRoute.AiLogs) },
-                    onNavigateToNotificationLogs = { navigator.push(AppRoute.NotificationLogs) }
+                    onNavigateToNotificationLogs = { navigator.push(AppRoute.NotificationLogs) },
+                    onNavigateToCacheViewer = { navigator.push(AppRoute.ImageCacheViewer) }
                 )
             }
             is AppRoute.GoogleAuth -> {
@@ -194,6 +202,36 @@ fun AppNavigation(
                 ApiLogDetailScreen(
                     rawJson = route.rawJson,
                     onNavigateBack = { navigator.pop() }
+                )
+            }
+            is AppRoute.ImageCacheViewer -> {
+                ImageCacheViewerScreen(
+                    viewModel = imageCacheViewerViewModel,
+                    onNavigateBack = { navigator.pop() },
+                    onNavigateToDetail = { filename ->
+                        navigator.push(AppRoute.ImageDetail(filename))
+                    }
+                )
+            }
+            is AppRoute.ImageDetail -> {
+                val viewerState by imageCacheViewerViewModel.uiState.collectAsState()
+                val imageItem = remember(viewerState.monthGroups, route.filename) {
+                    viewerState.monthGroups.flatMap { it.items }.find { it.filename == route.filename }
+                }
+
+                ImageDetailScreen(
+                    item = imageItem,
+                    isExporting = viewerState.isExporting,
+                    onNavigateBack = { navigator.pop() },
+                    onDownload = {
+                        imageItem?.let { imageCacheViewerViewModel.downloadImage(it) }
+                    },
+                    onDeleteConfirmed = {
+                        imageItem?.let {
+                            imageCacheViewerViewModel.deleteImage(it)
+                            navigator.pop()
+                        }
+                    }
                 )
             }
         }

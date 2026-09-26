@@ -10,6 +10,8 @@ import com.geminiflow.app.service.BootReceiver
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -28,8 +30,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     init {
         loadSettings()
         observeAuthStatus()
+        observeCacheEvents()
         refreshBatteryStatus()
         refreshCacheStats()
+    }
+
+    private fun observeCacheEvents() {
+        imageRepository.cacheInvalidationEvents
+            .onEach { refreshCacheStats() }
+            .launchIn(viewModelScope)
     }
 
     private fun loadSettings() {
