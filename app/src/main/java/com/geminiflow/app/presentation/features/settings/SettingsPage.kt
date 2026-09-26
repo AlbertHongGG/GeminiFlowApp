@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -19,7 +20,10 @@ import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -37,12 +41,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.geminiflow.app.presentation.components.AppSwitch
-import com.geminiflow.app.presentation.components.GfButton
-import com.geminiflow.app.presentation.components.GfButtonVariant
 import com.geminiflow.app.presentation.components.ImmersiveBottomSheet
 import com.geminiflow.app.presentation.components.ImmersiveScaffold
 import com.geminiflow.app.presentation.components.NavigationBarsSafeSpacer
 import com.geminiflow.app.presentation.components.PremiumConfigHeader
+import com.geminiflow.app.presentation.components.SwipeToConfirmDrawer
 import com.geminiflow.app.presentation.features.settings.components.SettingsDivider
 import com.geminiflow.app.presentation.features.settings.components.SettingsSection
 import com.geminiflow.app.presentation.features.settings.components.SettingsTile
@@ -61,6 +64,7 @@ fun SettingsPage(
     val uiState by viewModel.uiState.collectAsState()
 
     var showNetworkBottomSheet by remember { mutableStateOf(false) }
+    var showClearCacheDrawer by remember { mutableStateOf(false) }
     var hostInput by remember { mutableStateOf(uiState.serverHost) }
     var portInput by remember { mutableStateOf(uiState.serverPort.toString()) }
 
@@ -128,6 +132,18 @@ fun SettingsPage(
                 )
             )
         }
+    }
+
+    if (showClearCacheDrawer) {
+        SwipeToConfirmDrawer(
+            title = "CLEAR IMAGE CACHE",
+            onConfirm = {
+                viewModel.clearCache()
+                NotificationController.showSuccess("已清空所有暫存快取圖片")
+                showClearCacheDrawer = false
+            },
+            onDismiss = { showClearCacheDrawer = false }
+        )
     }
 
     ImmersiveScaffold {
@@ -208,16 +224,16 @@ fun SettingsPage(
                     title = "圖床快取",
                     subtitle = "${uiState.cacheSizeFormatted} · ${uiState.cacheFilesCount} 個檔案",
                     trailing = {
-                        GfButton(
-                            text = "清空快取",
-                            onClick = {
-                                viewModel.clearCache()
-                                NotificationController.showSuccess("已清空所有暫存快取圖片")
-                            },
-                            variant = GfButtonVariant.Secondary,
-                            height = 34.dp,
-                            fontSize = 12.sp
-                        )
+                        IconButton(
+                            onClick = { showClearCacheDrawer = true }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.DeleteOutline,
+                                contentDescription = "清空快取",
+                                tint = AppColors.danger,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
                     }
                 )
             }

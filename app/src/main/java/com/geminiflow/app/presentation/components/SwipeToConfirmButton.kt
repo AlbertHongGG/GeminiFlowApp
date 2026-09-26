@@ -1,4 +1,4 @@
-package com.geminiflow.app.presentation.features.log.components
+package com.geminiflow.app.presentation.components
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
@@ -10,11 +10,9 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -43,8 +41,9 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 @Composable
-fun SwipeToObliterateButton(
+fun SwipeToConfirmButton(
     title: String = "SLIDE TO WIPE",
+    confirmedTitle: String = "RELEASE TO CLEAR",
     activeColor: Color = Color(0xFFEF4444),
     onConfirmed: () -> Unit,
     modifier: Modifier = Modifier
@@ -84,7 +83,7 @@ fun SwipeToObliterateButton(
         )
 
         Text(
-            text = if (progress > 0.8f) "RELEASE TO CLEAR" else title,
+            text = if (progress > 0.8f) confirmedTitle else title,
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 1.5.sp,

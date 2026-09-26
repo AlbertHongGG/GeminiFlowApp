@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.geminiflow.app.domain.model.log.DeletableLog
 import com.geminiflow.app.presentation.components.ImmersiveScaffold
+import com.geminiflow.app.presentation.components.SwipeToConfirmDrawer
 import com.geminiflow.app.presentation.components.navigationSafeBottomPadding
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
@@ -50,7 +51,7 @@ fun <T : DeletableLog> GenericLogViewerScaffold(
     var showClearDrawer by remember { mutableStateOf(false) }
 
     if (showClearDrawer) {
-        ClearLogsDrawer(
+        SwipeToConfirmDrawer(
             title = clearDrawerTitle,
             onConfirm = {
                 scope.launch {

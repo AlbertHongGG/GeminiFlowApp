@@ -1,4 +1,4 @@
-package com.geminiflow.app.presentation.features.log.components
+package com.geminiflow.app.presentation.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -27,8 +27,11 @@ import androidx.compose.ui.unit.sp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ClearLogsDrawer(
+fun SwipeToConfirmDrawer(
     title: String,
+    sliderTitle: String = "SLIDE TO WIPE",
+    confirmedTitle: String = "RELEASE TO CLEAR",
+    activeColor: Color = Color(0xFFEF4444),
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -72,12 +75,11 @@ fun ClearLogsDrawer(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            SwipeToObliterateButton(
-                title = "SLIDE TO WIPE",
-                activeColor = Color(0xFFEF4444),
-                onConfirmed = {
-                    onConfirm()
-                }
+            SwipeToConfirmButton(
+                title = sliderTitle,
+                confirmedTitle = confirmedTitle,
+                activeColor = activeColor,
+                onConfirmed = onConfirm
             )
         }
     }
