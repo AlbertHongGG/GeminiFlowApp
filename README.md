@@ -1,56 +1,134 @@
-# GeminiFlow Android App (Local Server)
+# GeminiFlow Android App
 
-GeminiFlow Android 是一個基於純 Android 原生架構（Kotlin 2.0+ / Jetpack Compose / Ktor CIO 嵌入式伺服器 / OkHttp）的本地 AI 服務端 App。
+GeminiFlow 是一個基於 Android 原生架構（Kotlin 2.0 / Jetpack Compose / Ktor CIO 嵌入式伺服器 / OkHttp）的本機 AI 服務端與測試沙盒應用程式。
 
-它直接在 Android 手機本機啟動一個高效、低資源消耗的 HTTP 伺服器（預設為 `http://127.0.0.1:5000`），對內提供文字串流對話（SSE Stream）、對話歷史（Session）、圖片多模態理解與本地圖片生成快取，讓手機上的其他應用程式無需架設外部雲端伺服器即可直接調用 Gemini。
-
----
-
-## 🌟 核心特點
-
-1. **純 Android 原生新架構**：
-   - 採用 **Clean Architecture** 分層（`domain`, `data`, `server`, `service`, `presentation`），完全消除歷史修補包袱。
-   - 採用 **Ktor CIO 嵌入式伺服器**，純協程非阻塞，常駐記憶體僅約 25MB~35MB，大幅降低遭系統 LMK（Low Memory Killer）終止的風險。
-2. **前景服務 (Foreground Service) 與電池無限制防殺**：
-   - 內建常駐前台通知與 `Partial WakeLock`，確保螢幕關閉時伺服器依然持續監聽。
-   - 內建一鍵申請系統「電池最佳化無限制 (Unrestricted)」流程。
-   - 提供針對小米 (HyperOS/MIUI)、三星 (OneUI)、華為 (HarmonyOS)、OPPO/vivo 等主流機型的自啟動跳轉與防殺指引。
-3. **原生 Google 登入整合**：
-   - 內建 Material 3 封裝的 Android WebView，支援安全的 Google 帳號登入與雙重驗證。
-   - 自動透過 Android `CookieManager` 擷取憑證，並自動向 Gemini 首頁請求解析 `SNlM0e` 與 `FdrFJe` 安全權杖。
-4. **本機圖床與靜態資源託管**：
-   - 當 Gemini 生成圖片時，App 會自動透過 Google 認證連線下載圖片至私有目錄，並轉換為 `http://127.0.0.1:5000/images/xxx.png` 供其他 App 讀取。
-5. **內建對話與生圖測試盒**：
-   - 在 App 主儀表板即可直接進行文字提問與圖片生成測試。
+應用程式在本機啟動非阻塞 HTTP 伺服器（預設為 `http://127.0.0.1:5000`），對外提供文字串流對話（SSE Stream）、對話歷史（Session）與本機圖片生成快取，使本機其他應用程式可直接調用 Gemini 模型。
 
 ---
 
-## 📡 API 端點規範 (127.0.0.1:5000)
+## 系統架構設計
 
-### 1. 健康檢查
+本專案採 Clean Architecture 架構分層，各層職責分明：
+
+1. **Presentation Layer (展示層)**：
+   - Jetpack Compose 開發。
+   - 包含主頁面儀表板、網路流量遙測監控（Server Hub）與模型測試沙盒（Playground）。
+   - 以 `MediaAsset` 狀態機驅動圖片渲染，杜絕非同步載入坍縮。
+2. **Domain Layer (領域層)**：
+   - 核心業務模型與 UseCase（`StreamChatUseCase`、`EnsureAuthUseCase`）。
+   - 強型別狀態機定義（`MediaAsset`、`MessageDeliveryState`），消除原始型別偏執（Primitive Obsession）。
+3. **Data Layer (資料層)**：
+   - `GeminiApiClient`：封裝 Google Batchexecute RPC 串流解析。
+   - `GeminiThoughtFilter`：純淨化輸出，過濾 XML 思維鏈、思考標題與內部佔位網址。
+   - `WebkitCookieJar`：遵循 RFC 6265，委託 Android 原生 `CookieManager` 實作動態憑證注入。
+   - `ImageStorageManager`：專用連線池與原子性本機檔案落地。
+4. **Server Layer (本機服務層)**：
+   - 基於 Ktor CIO 引擎之嵌入式 HTTP 伺服器，常駐記憶體約 25MB~35MB。
+   - 支援 CORS、ContentNegotiation 與靜態圖片路由（`/images/{filename}`）。
+5. **Service Layer (系統服務層)**：
+   - 前景服務（Foreground Service）綁定 Partial WakeLock，確保背景待機時伺服器持續監聽。
+
+---
+
+## Google CDN 圖片下載機制與踩坑技術復盤
+
+### 1. 核心驗證鏈路：Google CDN 三跳轉機制 (3-Hop Redirect Chain)
+
+Google Gemini 所產生的圖片資源（`lh3.googleusercontent.com`）具有嚴格的跨網域安全防護機制，其完整交付流程為 3 次 HTTP 跳轉：
+
+```
+[Hop 0] https://lh3.googleusercontent.com/gg-dl/...
+        │
+        │ 條件：嚴禁攜帶 .google.com Cookie
+        ▼
+   HTTP 302 Found (轉向至認證跳板)
+        │
+[Hop 1] https://work.fife.usercontent.google.com/rd-gg-dl/...
+        │
+        │ 條件：必須注入有效 Google Session Cookie (__Secure-1PSID 等)
+        ▼
+   HTTP 302 Found (驗證通過，轉向至實體檔案)
+        │
+[Hop 2] https://lh3.googleusercontent.com/rd-gg-dl/...=s512
+        │
+        ▼
+   HTTP 200 OK (交付 Content-Type: image/jpeg 二進位串流)
+```
+
+### 2. 歷史問題點與失敗嘗試 (Pitfalls)
+
+#### 坑點一：Hop 0 跨域憑證洩漏導致 HTTP 400
+* **現象**：發送圖片下載請求時，伺服器立即回傳 `HTTP 400 Bad Request`。
+* **原因**：舊實作以字串拼接方式直接在請求 Header 加入帳號 Cookie。`lh3.googleusercontent.com` 作為公開沙盒入口，一旦在 Hop 0 接收到包含 `.google.com` 的 Session Cookie，Google 邊緣防火牆會直接判定為跨域憑證外洩並中斷請求。
+* **防範原則**：Hop 0 必須維持純淨請求，不可帶入 `.google.com` 帳號 Cookie。
+
+#### 坑點二：Hop 1 遺漏認證憑證導致 HTTP 403
+* **現象**：跳轉至 `work.fife.usercontent.google.com` 時回傳 `HTTP 403 Forbidden`。
+* **原因**：若客戶端完全不帶 Cookie，或重定向時未自動識別 `.google.com` 主網域，認證跳板無法驗證呼叫者身份。
+* **防範原則**：轉向 Hop 1 時，客戶端必須根據目標網域自動注入本機登入憑證。
+
+#### 坑點三：WebView 沙盒 Canvas/Fetch 跨域限制 (CORS Null Origin)
+* **現象**：嘗試透過隱藏 WebView 執行 JavaScript `fetch()` 或繪製 Canvas 轉 Base64 失敗。
+* **原因**：WebView 載入 `about:blank` 時，其安全來源（Origin）為 `null`。Chromium 沙盒環境嚴格阻擋 `null` 來源對 Google CDN 資源發起帶憑證的請求，導致執行時期拋出 CORS 例外。
+* **防範原則**：不可依賴 WebView 前端環境繞道下載，必須在原生網路層完成下載。
+
+#### 坑點四：下載失敗降級外洩與 UI 高度坍縮
+* **現象**：生成圖片時，助理對話框高度為 0 或呈現完全空白的卡片，且無任何錯誤提示。
+* **原因**：
+  1. 舊系統使用 `List<String>` 混雜本地路徑與遠端網址。當本機下載失敗時，程式邏輯私自將遠端 CDN 網址推入列表作為備援。
+  2. Coil 圖片庫嘗試載入遠端網址時，因無 Hop 1 跳轉憑證而載入失敗，圖片高度保持為 0。
+  3. 與此同時，思考過程過濾器已將模型輸出的思考文字清除，導致整個氣泡既無文字也無有效圖片，最終坍縮為空白。
+* **防範原則**：未下載完成之遠端 CDN 網址絕不可傳遞至 UI 層；任何下載異常必須轉化為明確的失敗狀態，禁止靜默吞噬。
+
+#### 坑點五：修改已簽章網址參數導致簽章失效
+* **現象**：對 `gg-dl` 圖片網址追加 `=s0-d` 或修改 Query Parameter，導致 HTTP 400/404。
+* **原因**：`gg-dl` 路徑中的 Token 已內嵌 Google 的加密雜湊校驗碼，字串的任何變更都會導致伺服器端簽章校驗失敗。
+* **防範原則**：Google CDN 已簽章網址必須原樣發送，禁止擅自拼接或修改後綴。
+
+### 3. 架構解決方案
+
+1. **RFC 6265 規範之 `WebkitCookieJar`**：
+   - 實作 OkHttp `CookieJar` 介面，委託 Android 原生 `CookieManager.getInstance().getCookie(url)`。
+   - 對於 Hop 0（`googleusercontent.com`），`CookieManager` 自動回傳空值，請求不帶 Cookie，順利獲取 302。
+   - 轉向 Hop 1（`work.fife.usercontent.google.com`，符合 `.google.com`），`CookieManager` 自動匹配並注入登入憑證，通過認證。
+2. **本機原子化檔案儲存 (`ImageStorageManager`)**：
+   - 採用專用連線池與自定義標頭（模擬瀏覽器 Sec-Fetch 策略）。
+   - 下載時先寫入 `.tmp` 暫存檔，確認寫入完成且位元組大於 0 後，再以原子操作 `renameTo` 目標檔案，避免 UI 讀取到半殘檔案。
+3. **強型別領域狀態機 (`MediaAsset`)**：
+   - 定義 `LocalReady`、`Downloading`、`Failed` 三種狀態。
+   - UI 僅對 `LocalReady` 本機實體檔案調用 Coil 載入，100% 免疫網路波動與 Cookie 問題。
+   - 下載中呈現進度指示，下載失敗呈現錯誤診斷資訊與重試按鈕。
+
+---
+
+## 本機 API 端點規範 (127.0.0.1:5000)
+
+### 1. 系統健康檢查
 ```http
 GET /health
 ```
-**回應範例：**
+回應：
 ```json
-{"ok": true}
+{
+  "ok": true
+}
 ```
 
-### 2. 一般文字對話 (包含 Session)
+### 2. 一般文字對話與會話維持
 ```http
 POST /chat
 Content-Type: application/json
 
 {
-  "prompt": "記住我的名字是小明",
+  "prompt": "你好，請介紹你自己",
   "model": "gemini-3-pro",
-  "session_id": "session_001"
+  "session_id": "session_default"
 }
 ```
-**回應範例：**
+回應：
 ```json
 {
-  "text": "你好小明！很高興認識你，請問今天有什麼我可以協助你的嗎？",
+  "text": "你好！我是 Gemini...",
   "images": []
 }
 ```
@@ -61,75 +139,83 @@ POST /stream
 Content-Type: application/json
 
 {
-  "prompt": "寫一首關於人工智慧的現代詩",
+  "prompt": "請寫一首現代詩",
   "model": "gemini-3-pro"
 }
 ```
-**串流事件格式 (Server-Sent Events)：**
-```
+串流事件格式：
+```text
 event: text
-data: {"chunk": "晶片在"}
+data: {"chunk":"微風"}
 
 event: text
-data: {"chunk": "寂靜中低鳴"}
+data: {"chunk":"輕拂街角"}
 
 event: done
 data: {}
 ```
 
-### 4. 圖片生成測試
+### 4. 圖片生成
 ```http
 POST /chat
 Content-Type: application/json
 
 {
-  "prompt": "畫一隻戴著太陽眼鏡的柯基犬",
-  "model": "gemini-3-pro-image-preview"
+  "prompt": "繪製一隻在草地上奔跑的柴犬",
+  "model": "gemini-3-pro"
 }
 ```
-**回應範例：**
+回應：
 ```json
 {
-  "text": "這是一隻戴著太陽眼鏡的可愛柯基犬：",
-  "images": ["http://127.0.0.1:5000/images/20260921_220500_gemini-3-pro-image-preview_generated.png"]
+  "text": "這是為您生成的柴犬圖片：",
+  "images": [
+    "http://127.0.0.1:5000/images/20260926_190000_gemini-3-pro_generated.png"
+  ]
 }
 ```
 
-### 5. 攜帶圖片提問 (多模態)
-在 `images` 陣列傳入 Base64 字串（支援 `data:image/png;base64,...` 或純 Base64 字串）：
-```json
-{
-  "prompt": "請描述這張圖片的內容",
-  "model": "gemini-3-pro",
-  "images": ["data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ..."]
-}
+### 5. 靜態圖片存取
+```http
+GET /images/{filename}
 ```
+回應對應二進位圖片資料（`Content-Type: image/png`）。
 
 ---
 
-## 🛠️ 建置與安裝
+## 建置、測試與安裝
 
-### 透過終端機建置 Debug APK：
+### 執行單元測試
+```bash
+./gradlew.bat testDebugUnitTest
+```
+包含以下測試驗證：
+- `WebkitCookieJarTest`：驗證 Hop 0 與 Hop 1 網域 Cookie 隔離與注入。
+- `ImageStorageManagerTest`：驗證 Base64 行內解碼與 HTTP 原子性下載。
+- `TrafficLoggingInterceptorTest`：驗證 RFC 7230 記憶體遙測標籤相容性。
+- `GeminiStreamParserTest`：驗證思考過程與思維鏈過濾。
+
+### 編譯 Debug APK
 ```bash
 ./gradlew.bat assembleDebug
 ```
-產生的 APK 位於：
-```
+產出檔案位於：
+```text
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-### 透過 ADB 直接安裝至手機：
+### 安裝至實體設備
 ```bash
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
 ---
 
-## 📱 使用步驟
+## 使用說明
 
-1. 安裝並開啟 **GeminiFlow** App。
-2. 點擊右上角 **帳號圖示**，在內建瀏覽器中登入您的 Google 帳號。
-3. 登入完成後點擊「立即儲存 Cookie」，返回主畫面可見 Google 憑證顯示為「已驗證」。
-4. 點擊主畫面中的 **電池防殺** 卡片，點擊「一鍵設置為無限制」，依據自身手機廠牌完成自啟動與後台鎖定。
-5. 點擊綠色的 **「啟動本地伺服器」** 大按鈕。
-6. 通知欄將常駐顯示 `GeminiFlow 服務運行中 (http://127.0.0.1:5000)`，此時您手機上的所有其他 App 皆可自由發送 HTTP 請求！
+1. 開啟 GeminiFlow App。
+2. 進入帳號驗證頁面，透過內建 WebView 登入 Google 帳號。
+3. 登入成功後點擊儲存憑證，確認 Google 憑證狀態為「已驗證」。
+4. 依系統提示設定電池最佳化為「無限制」，以防止後台被系統終止。
+5. 點擊「啟動本地伺服器」，狀態列即顯示伺服器常駐通知。
+6. 本機其他客戶端應用程式或腳本即可向 `http://127.0.0.1:5000` 發送 API 請求。
