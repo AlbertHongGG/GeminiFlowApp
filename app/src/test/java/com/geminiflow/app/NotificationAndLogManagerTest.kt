@@ -1,8 +1,9 @@
 package com.geminiflow.app
 
-import com.geminiflow.app.domain.model.AppNotification
-import com.geminiflow.app.domain.model.NotificationType
-import com.geminiflow.app.domain.model.ApiLogItem
+import com.geminiflow.app.domain.model.common.AppNotification
+import com.geminiflow.app.domain.model.common.NotificationType
+import com.geminiflow.app.domain.model.log.ApiLogModel
+import java.io.File
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -37,21 +38,22 @@ class NotificationAndLogManagerTest {
     }
 
     @Test
-    fun testApiLogItemCreation() {
-        val item = ApiLogItem(
+    fun testApiLogModelCreation() {
+        val item = ApiLogModel(
+            id = "test-123",
+            file = File("/tmp/test.json"),
             title = "AiChat",
+            displayTime = "2026/09/26 20:00:00",
             durationMs = 1500L,
-            statusCode = 200,
-            source = "ProxyServer",
-            requestJson = "{\"prompt\":\"hello\"}",
-            responseJson = "{\"text\":\"world\"}"
+            timestamp = 1790424000000L,
+            rawJson = "{\"prompt\":\"hello\"}",
+            source = "全部"
         )
 
         assertEquals("AiChat", item.title)
         assertEquals(1500L, item.durationMs)
-        assertEquals(200, item.statusCode)
-        assertEquals(false, item.isError)
-        assertEquals("ProxyServer", item.source)
+        assertEquals("test-123", item.id)
+        assertEquals(1790424000000L, item.timestampMillis)
     }
 
     @Test

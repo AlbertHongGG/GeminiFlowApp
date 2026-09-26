@@ -1,6 +1,6 @@
 package com.geminiflow.app.domain.repository
 
-import com.geminiflow.app.domain.model.SessionData
+import com.geminiflow.app.domain.model.auth.SessionData
 
 interface SessionRepository {
     suspend fun getSession(sessionId: String): SessionData?

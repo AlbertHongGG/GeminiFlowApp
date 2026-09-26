@@ -1,6 +1,6 @@
 package com.geminiflow.app.data.storage
 
-import com.geminiflow.app.domain.model.TrafficLog
+import com.geminiflow.app.domain.model.log.TrafficLog
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -8,9 +8,6 @@ import kotlinx.coroutines.flow.update
 import java.util.Collections
 import java.util.LinkedList
 
-/**
- * 記憶體即時環狀緩衝區，維護近期的 HTTP 網路請求記錄。
- */
 class TrafficLogManager(private val maxEntries: Int = 100) {
 
     private val _logs = MutableStateFlow<List<TrafficLog>>(emptyList())

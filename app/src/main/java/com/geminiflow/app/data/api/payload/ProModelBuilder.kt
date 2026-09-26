@@ -1,7 +1,7 @@
 package com.geminiflow.app.data.api.payload
 
-import com.geminiflow.app.domain.model.ChatRequest
-import com.geminiflow.app.domain.model.GeminiTokens
+import com.geminiflow.app.domain.model.auth.GeminiTokens
+import com.geminiflow.app.domain.model.chat.ChatRequest
 import org.json.JSONArray
 
 class ProModelBuilder(

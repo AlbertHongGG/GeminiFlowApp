@@ -2,6 +2,7 @@ package com.geminiflow.app.data.storage
 
 import android.content.Context
 import android.util.Log
+import com.geminiflow.app.domain.model.log.ApiLogModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,24 +17,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.random.Random
-import com.geminiflow.app.domain.model.DeletableLog
 
-data class ApiLogModel(
-    override val id: String,
-    override val file: File,
-    val title: String,
-    val displayTime: String,
-    val durationMs: Long,
-    val timestamp: Long,
-    val rawJson: String,
-    val source: String = "全部"
-) : DeletableLog {
-    override val timestampMillis: Long get() = timestamp
-}
-
-/**
- * API 請求日誌管理器，負責請求與回應日誌的檔案持久化存儲、讀取與清理。
- */
 class ApiLogManager(private val context: Context) {
 
     companion object {
@@ -63,9 +47,6 @@ class ApiLogManager(private val context: Context) {
         prefs.edit().putBoolean(PREF_KEY_LOGGING_ENABLED, enabled).apply()
     }
 
-    /**
-     * 寫入 API 交互日誌至檔案（若已開啟日誌記錄）。
-     */
     fun logInteraction(agentName: String, durationMs: Long, request: Any?, response: Any?) {
         if (!isLoggingEnabled()) return
 
@@ -127,9 +108,6 @@ class ApiLogManager(private val context: Context) {
         }
     }
 
-    /**
-     * 重新載入所有日誌檔案，依最新時間排序。
-     */
     fun reload() {
         scope.launch {
             val entries = loadAllEntries()
@@ -183,20 +161,14 @@ class ApiLogManager(private val context: Context) {
         }.sortedByDescending { it.file.name }
     }
 
-    /**
-     * 刪除特定日誌檔案。
-     */
     suspend fun clearLog(file: File) = withContext(Dispatchers.IO) {
         try {
             if (file.exists()) {
-                val deleted = file.delete()
-                Log.d(TAG, "clearLog: ${file.name}, deleted=$deleted")
+                file.delete()
             }
-            // 立即過濾已刪除檔案，確保 UI 零延遲即刻響應
             _logsFlow.value = _logsFlow.value.filter {
                 it.file.absolutePath != file.absolutePath && it.id != file.name
             }
-            // 重新讀取磁碟校驗
             val entries = loadAllEntries()
             _logsFlow.value = entries
         } catch (e: Exception) {
@@ -204,9 +176,6 @@ class ApiLogManager(private val context: Context) {
         }
     }
 
-    /**
-     * 清空所有日誌檔案。
-     */
     suspend fun clearAllLogs() = withContext(Dispatchers.IO) {
         try {
             if (logDir.exists()) {
@@ -218,9 +187,7 @@ class ApiLogManager(private val context: Context) {
                     }
                 }
             }
-            // 徹底清除狀態，確保 UI 即刻響應空列表
             _logsFlow.value = emptyList()
-            Log.d(TAG, "clearAllLogs: all api logs cleared cleanly")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to clear all logs: ${e.message}", e)
             _logsFlow.value = emptyList()

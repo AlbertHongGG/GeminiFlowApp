@@ -32,8 +32,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.geminiflow.app.domain.model.AppNotification
-import com.geminiflow.app.domain.model.NotificationType
+import com.geminiflow.app.domain.model.common.AppNotification
+import com.geminiflow.app.domain.model.common.NotificationType
 
 /**
  * 全域浮動通知卡片元件。

@@ -9,40 +9,41 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import com.geminiflow.app.presentation.features.auth.GoogleAuthScreen
+import com.geminiflow.app.presentation.features.log.AiLogViewerScreen
+import com.geminiflow.app.presentation.features.log.ApiLogDetailScreen
+import com.geminiflow.app.presentation.features.log.SystemNotificationLogScreen
+import com.geminiflow.app.presentation.features.playground.PlaygroundScreen
+import com.geminiflow.app.presentation.features.playground.PlaygroundViewModel
+import com.geminiflow.app.presentation.features.server.ServerHubScreen
+import com.geminiflow.app.presentation.features.server.ServerHubViewModel
+import com.geminiflow.app.presentation.features.settings.BatteryGuideBottomSheet
+import com.geminiflow.app.presentation.features.settings.SettingsPage
+import com.geminiflow.app.presentation.features.settings.SettingsViewModel
 import com.geminiflow.app.presentation.navigation.components.CupertinoSwipeBackContainer
-import com.geminiflow.app.presentation.navigation.components.LocalCupertinoNavigator
+import com.geminiflow.app.presentation.navigation.contract.LocalCupertinoNavigator
 import com.geminiflow.app.presentation.navigation.model.AppRoute
 import com.geminiflow.app.presentation.notification.GlobalNotificationOverlay
 import com.geminiflow.app.presentation.theme.GeminiFlowTheme
-import com.geminiflow.app.presentation.ui.AiLogViewerScreen
-import com.geminiflow.app.presentation.ui.ApiLogDetailScreen
-import com.geminiflow.app.presentation.ui.BatteryGuideBottomSheet
-import com.geminiflow.app.presentation.ui.GoogleAuthScreen
-import com.geminiflow.app.presentation.ui.PlaygroundScreen
-import com.geminiflow.app.presentation.ui.ServerHubScreen
-import com.geminiflow.app.presentation.ui.SettingsPage
-import com.geminiflow.app.presentation.ui.SystemNotificationLogScreen
 import com.geminiflow.app.presentation.viewmodel.MainViewModel
 
 class MainActivity : ComponentActivity() {
 
-    private val viewModel: MainViewModel by viewModels()
+    private val mainViewModel: MainViewModel by viewModels()
+    private val serverHubViewModel: ServerHubViewModel by viewModels()
+    private val playgroundViewModel: PlaygroundViewModel by viewModels()
+    private val settingsViewModel: SettingsViewModel by viewModels()
 
     private val requestNotificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
@@ -61,7 +62,13 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background
                     ) {
-                        AppNavigation(viewModel = viewModel, activity = this)
+                        AppNavigation(
+                            mainViewModel = mainViewModel,
+                            serverHubViewModel = serverHubViewModel,
+                            playgroundViewModel = playgroundViewModel,
+                            settingsViewModel = settingsViewModel,
+                            activity = this
+                        )
                     }
                 }
             }
@@ -70,8 +77,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        viewModel.refreshBatteryStatus()
-        viewModel.refreshCacheStats()
+        settingsViewModel.refreshBatteryStatus()
+        settingsViewModel.refreshCacheStats()
+        serverHubViewModel.refreshCacheStats()
     }
 
     private fun checkAndRequestNotificationPermission() {
@@ -86,48 +94,52 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AppNavigation(
-    viewModel: MainViewModel,
+    mainViewModel: MainViewModel,
+    serverHubViewModel: ServerHubViewModel,
+    playgroundViewModel: PlaygroundViewModel,
+    settingsViewModel: SettingsViewModel,
     activity: ComponentActivity
 ) {
     val app = GeminiFlowApplication.instance
-    val uiState by viewModel.uiState.collectAsState()
+    val navState by mainViewModel.uiState.collectAsState()
+    val settingsState by settingsViewModel.uiState.collectAsState()
     var showBatteryBottomSheet by rememberSaveable { mutableStateOf(false) }
 
     if (showBatteryBottomSheet) {
         BatteryGuideBottomSheet(
-            isUnrestricted = uiState.isBatteryUnrestricted,
+            isUnrestricted = settingsState.isBatteryUnrestricted,
             onRequestUnrestricted = {
-                viewModel.requestIgnoreBatteryOptimizations(activity)
+                settingsViewModel.requestIgnoreBatteryOptimizations(activity)
             },
             onDismiss = {
                 showBatteryBottomSheet = false
-                viewModel.refreshBatteryStatus()
+                settingsViewModel.refreshBatteryStatus()
             }
         )
     }
 
     CupertinoSwipeBackContainer(
-        backStack = uiState.backStack,
-        onPushRoute = { route -> viewModel.pushRoute(route) },
-        onPopRoute = { viewModel.popRoute() }
+        backStack = navState.backStack,
+        onPushRoute = { route -> mainViewModel.pushRoute(route) },
+        onPopRoute = { mainViewModel.popRoute() }
     ) { route ->
         val navigator = LocalCupertinoNavigator.current
         when (route) {
             is AppRoute.Main -> {
                 ServerHubScreen(
-                    viewModel = viewModel,
+                    viewModel = serverHubViewModel,
                     onNavigateToSandbox = { navigator.push(AppRoute.Sandbox) },
                     onNavigateToSettings = { navigator.push(AppRoute.Settings) }
                 )
             }
             is AppRoute.Sandbox -> {
                 PlaygroundScreen(
-                    viewModel = viewModel
+                    viewModel = playgroundViewModel
                 )
             }
             is AppRoute.Settings -> {
                 SettingsPage(
-                    viewModel = viewModel,
+                    viewModel = settingsViewModel,
                     onNavigateToLogin = { navigator.push(AppRoute.GoogleAuth) },
                     onOpenBatteryGuide = { showBatteryBottomSheet = true },
                     onNavigateToAiLogs = { navigator.push(AppRoute.AiLogs) },

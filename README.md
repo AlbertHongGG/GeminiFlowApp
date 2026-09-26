@@ -10,21 +10,22 @@ GeminiFlow 是一個基於 Android 原生架構（Kotlin 2.0 / Jetpack Compose /
 
 本專案採 Clean Architecture 架構分層，各層職責分明：
 
-1. **Presentation Layer (展示層)**：
-   - Jetpack Compose 開發。
-   - 包含主頁面儀表板、網路流量遙測監控（Server Hub）與模型測試沙盒（Playground）。
-   - 以 `MediaAsset` 狀態機驅動圖片渲染，杜絕非同步載入坍縮。
-2. **Domain Layer (領域層)**：
-   - 核心業務模型與 UseCase（`StreamChatUseCase`、`EnsureAuthUseCase`）。
-   - 強型別狀態機定義（`MediaAsset`、`MessageDeliveryState`），消除原始型別偏執（Primitive Obsession）。
-3. **Data Layer (資料層)**：
-   - `GeminiApiClient`：封裝 Google Batchexecute RPC 串流解析。
-   - `GeminiThoughtFilter`：純淨化輸出，過濾 XML 思維鏈、思考標題與內部佔位網址。
+1. **Presentation Layer (展示層 - Feature 模組化)**：
+   - 採垂直特徵（Vertical Features）隔離：`server/`、`playground/`、`settings/`、`log/`、`auth/`。
+   - 每個 Feature 擁有自己的專屬畫面、專用 ViewModel 與專用 UI 狀態機，徹底解耦天神類別。
+   - 共通導航合約（`CupertinoNavigator`）獨立收攏，提供全域平滑滑動手勢。
+   - 統一泛型日誌骨架（`GenericLogViewerScaffold`）支援毛玻璃效果與長按紅光抹除。
+2. **Domain Layer (領域層 - 純 Kotlin 業務核心)**：
+   - 核心業務模型（`model/auth/`, `model/chat/`, `model/log/`, `model/server/`, `model/common/`）。
+   - 領域純介面（`repository/`）：`AuthRepository`、`ChatRepository`、`ImageRepository`、`SessionRepository`。
+   - 業務使用案例（`usecase/`）：`StreamChatUseCase`、`EnsureAuthUseCase`。
+3. **Data Layer (資料層 - 標準化倉儲實作)**：
+   - 統一倉儲實作（`data/repository/`）：`AuthRepositoryImpl`、`ChatRepositoryImpl`、`ImageRepositoryImpl`、`SessionRepositoryImpl`。
    - `WebkitCookieJar`：遵循 RFC 6265，委託 Android 原生 `CookieManager` 實作動態憑證注入。
-   - `ImageStorageManager`：專用連線池與原子性本機檔案落地。
-4. **Server Layer (本機服務層)**：
+   - 本機持久化管理器（`data/storage/`）：`ApiLogManager`、`NotificationLogManager`、`TrafficLogManager`。
+4. **Server Layer (本機服務層 - 路由拆解與生命週期)**：
    - 基於 Ktor CIO 引擎之嵌入式 HTTP 伺服器，常駐記憶體約 25MB~35MB。
-   - 支援 CORS、ContentNegotiation 與靜態圖片路由（`/images/{filename}`）。
+   - 獨立路由模組（`server/routes/`）：`HealthRoute`、`ImagesRoute`、`ChatRoute`、`StreamRoute`。
 5. **Service Layer (系統服務層)**：
    - 前景服務（Foreground Service）綁定 Partial WakeLock，確保背景待機時伺服器持續監聽。
 
@@ -191,7 +192,7 @@ GET /images/{filename}
 ```
 包含以下測試驗證：
 - `WebkitCookieJarTest`：驗證 Hop 0 與 Hop 1 網域 Cookie 隔離與注入。
-- `ImageStorageManagerTest`：驗證 Base64 行內解碼與 HTTP 原子性下載。
+- `ImageRepositoryTest`：驗證 Base64 行內解碼與 HTTP 原子性下載。
 - `TrafficLoggingInterceptorTest`：驗證 RFC 7230 記憶體遙測標籤相容性。
 - `GeminiStreamParserTest`：驗證思考過程與思維鏈過濾。
 

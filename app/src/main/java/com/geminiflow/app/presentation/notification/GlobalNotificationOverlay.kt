@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.geminiflow.app.domain.model.common.AppNotification
 /**
  * 全域通知覆蓋層元件，掛載於最頂層。
  * 負責在應用程式畫面最上層呈現平滑進出的浮動通知卡片 (NotificationToast)。

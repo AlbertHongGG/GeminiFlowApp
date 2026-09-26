@@ -1,7 +1,7 @@
 package com.geminiflow.app.data.network
 
 import com.geminiflow.app.data.storage.TrafficLogManager
-import com.geminiflow.app.domain.model.TrafficLog
+import com.geminiflow.app.domain.model.log.TrafficLog
 import okhttp3.Interceptor
 import okhttp3.Response
 

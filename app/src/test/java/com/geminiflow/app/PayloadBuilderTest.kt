@@ -1,8 +1,8 @@
 package com.geminiflow.app
 
 import com.geminiflow.app.data.api.payload.PayloadBuilderFactory
-import com.geminiflow.app.domain.model.ChatRequest
-import com.geminiflow.app.domain.model.GeminiTokens
+import com.geminiflow.app.domain.model.chat.ChatRequest
+import com.geminiflow.app.domain.model.auth.GeminiTokens
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue

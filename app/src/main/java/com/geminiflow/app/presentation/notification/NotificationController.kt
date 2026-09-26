@@ -1,8 +1,8 @@
 package com.geminiflow.app.presentation.notification
 
 import com.geminiflow.app.data.storage.NotificationLogManager
-import com.geminiflow.app.domain.model.AppNotification
-import com.geminiflow.app.domain.model.NotificationType
+import com.geminiflow.app.domain.model.common.AppNotification
+import com.geminiflow.app.domain.model.common.NotificationType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job

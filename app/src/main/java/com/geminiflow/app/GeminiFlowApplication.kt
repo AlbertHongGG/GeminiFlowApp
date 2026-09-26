@@ -5,13 +5,22 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
-import com.geminiflow.app.data.api.GeminiApiClient
 import com.geminiflow.app.data.auth.CookieManagerHelper
-import com.geminiflow.app.data.auth.GeminiAuthRepositoryImpl
-import com.geminiflow.app.data.storage.ImageStorageManager
-import com.geminiflow.app.data.storage.SessionPreferencesRepository
+import com.geminiflow.app.data.network.TrafficLoggingInterceptor
+import com.geminiflow.app.data.repository.AuthRepositoryImpl
+import com.geminiflow.app.data.repository.ChatRepositoryImpl
+import com.geminiflow.app.data.repository.ImageRepositoryImpl
+import com.geminiflow.app.data.repository.SessionRepositoryImpl
+import com.geminiflow.app.data.storage.ApiLogManager
+import com.geminiflow.app.data.storage.NotificationLogManager
+import com.geminiflow.app.data.storage.TrafficLogManager
+import com.geminiflow.app.domain.repository.AuthRepository
+import com.geminiflow.app.domain.repository.ChatRepository
+import com.geminiflow.app.domain.repository.ImageRepository
+import com.geminiflow.app.domain.repository.SessionRepository
 import com.geminiflow.app.domain.usecase.EnsureAuthUseCase
 import com.geminiflow.app.domain.usecase.StreamChatUseCase
+import com.geminiflow.app.presentation.notification.NotificationController
 import com.geminiflow.app.server.KtorLocalServer
 import com.geminiflow.app.service.BatteryOptimizationHelper
 import okhttp3.OkHttpClient
@@ -25,30 +34,29 @@ class GeminiFlowApplication : Application() {
             private set
     }
 
-    // 核心依賴元件（全域單例容器）
     lateinit var okHttpClient: OkHttpClient
         private set
     lateinit var cookieHelper: CookieManagerHelper
         private set
-    lateinit var authRepository: GeminiAuthRepositoryImpl
+    lateinit var authRepository: AuthRepository
         private set
-    lateinit var sessionRepository: SessionPreferencesRepository
+    lateinit var sessionRepository: SessionRepository
         private set
-    lateinit var imageStorageManager: ImageStorageManager
+    lateinit var imageRepository: ImageRepository
         private set
-    lateinit var geminiApiClient: GeminiApiClient
+    lateinit var chatRepository: ChatRepository
         private set
     lateinit var streamChatUseCase: StreamChatUseCase
         private set
     lateinit var ensureAuthUseCase: EnsureAuthUseCase
         private set
-    lateinit var trafficLogManager: com.geminiflow.app.data.storage.TrafficLogManager
+    lateinit var trafficLogManager: TrafficLogManager
         private set
-    lateinit var notificationLogManager: com.geminiflow.app.data.storage.NotificationLogManager
+    lateinit var notificationLogManager: NotificationLogManager
         private set
-    lateinit var apiLogManager: com.geminiflow.app.data.storage.ApiLogManager
+    lateinit var apiLogManager: ApiLogManager
         private set
-    lateinit var notificationController: com.geminiflow.app.presentation.notification.NotificationController
+    lateinit var notificationController: NotificationController
         private set
     lateinit var ktorServer: KtorLocalServer
         private set
@@ -64,8 +72,8 @@ class GeminiFlowApplication : Application() {
     }
 
     private fun initDependencies() {
-        trafficLogManager = com.geminiflow.app.data.storage.TrafficLogManager()
-        val loggingInterceptor = com.geminiflow.app.data.network.TrafficLoggingInterceptor(trafficLogManager)
+        trafficLogManager = TrafficLogManager()
+        val loggingInterceptor = TrafficLoggingInterceptor(trafficLogManager)
 
         okHttpClient = OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
@@ -75,26 +83,27 @@ class GeminiFlowApplication : Application() {
             .build()
 
         cookieHelper = CookieManagerHelper()
-        authRepository = GeminiAuthRepositoryImpl(this, okHttpClient, cookieHelper)
-        sessionRepository = SessionPreferencesRepository(this)
-        imageStorageManager = ImageStorageManager(this)
-        notificationLogManager = com.geminiflow.app.data.storage.NotificationLogManager(this)
-        apiLogManager = com.geminiflow.app.data.storage.ApiLogManager(this)
-        notificationController = com.geminiflow.app.presentation.notification.NotificationController(notificationLogManager)
-        com.geminiflow.app.presentation.notification.NotificationController.init(notificationController)
-        geminiApiClient = GeminiApiClient(okHttpClient)
+        authRepository = AuthRepositoryImpl(this, okHttpClient, cookieHelper)
+        sessionRepository = SessionRepositoryImpl(this)
+        imageRepository = ImageRepositoryImpl(this)
+        chatRepository = ChatRepositoryImpl(okHttpClient)
+
+        notificationLogManager = NotificationLogManager(this)
+        apiLogManager = ApiLogManager(this)
+        notificationController = NotificationController(notificationLogManager)
+        NotificationController.init(notificationController)
 
         ensureAuthUseCase = EnsureAuthUseCase(authRepository)
         streamChatUseCase = StreamChatUseCase(
             authRepository = authRepository,
-            chatRepository = geminiApiClient,
+            chatRepository = chatRepository,
             sessionRepository = sessionRepository,
-            imageRepository = imageStorageManager
+            imageRepository = imageRepository
         )
 
         ktorServer = KtorLocalServer(
             streamChatUseCase = streamChatUseCase,
-            imageStorageManager = imageStorageManager,
+            imageRepository = imageRepository,
             trafficLogManager = trafficLogManager,
             apiLogManager = apiLogManager
         )

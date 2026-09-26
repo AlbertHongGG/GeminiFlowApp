@@ -24,28 +24,13 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.unit.dp
+import com.geminiflow.app.presentation.navigation.contract.CupertinoNavigator
+import com.geminiflow.app.presentation.navigation.contract.LocalCupertinoNavigator
 import com.geminiflow.app.presentation.navigation.model.AppRoute
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-/**
- * 全域導航控制器介面，可由各視圖透過 LocalCupertinoNavigator.current 取得並發起推進或退棧。
- */
-interface CupertinoNavigator {
-    fun push(route: AppRoute)
-    fun pop()
-}
-
-val LocalCupertinoNavigator = staticCompositionLocalOf<CupertinoNavigator> {
-    error("No CupertinoNavigator provided in composition tree")
-}
-
-/**
- * 全域觸摸屏蔽修飾符 (Touch Shield)。
- * 當 enabled = true 時，於 PointerEventPass.Initial 階段強制消費所有指標事件，
- * 確保底層畫面連 1 個像素的事件都無法接收，徹底杜絕幽靈滾動與穿透點擊。
- */
 fun Modifier.touchShield(enabled: Boolean): Modifier = if (!enabled) this else {
     this.pointerInput(Unit) {
         awaitPointerEventScope {
@@ -56,18 +41,6 @@ fun Modifier.touchShield(enabled: Boolean): Modifier = if (!enabled) this else {
         }
     }
 }
-
-/**
- * 現代零閃爍、零抖動 Cupertino 物理動態雙層渲染導航容器 (CupertinoSwipeBackContainer V3)。
- *
- * 核心保證：
- * 1. 四層解耦架構：Driver（純物理運動）、Input（根靜態手勢）、Viewport（雙層隔離視口）、Navigator（語意門面）。
- * 2. 根級靜態手勢捕獲 (Root Input Engine)：手勢監聽置於 translationX = 0 的絕對宿主根容器，100% 根除座標反饋震盪。
- * 3. 同步直接物理驅動 (Synchronous Tracking)：拖曳位移為同步浮點操作，無協程派發延遲。
- * 4. 絕對輸入屏蔽 (Impervious Touch Shield)：開啟子頁面時底層 100% 免疫任何觸摸與滾動。
- * 5. 數學級首幀位移不變量 (Zero-Flash Frame Invariance)：推進第 0 幀位移即在 screenWidth，絕無全螢幕跳動。
- * 6. 1:1 LensWise 物理手感：左側 36dp 邊緣捕獲、16dp 縱深漸變立體陰影、-1/3 視差滑動與釋放慣性結算。
- */
 @Composable
 fun CupertinoSwipeBackContainer(
     backStack: List<AppRoute>,
