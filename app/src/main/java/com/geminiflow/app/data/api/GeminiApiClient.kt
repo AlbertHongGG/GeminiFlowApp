@@ -139,6 +139,15 @@ class GeminiApiClient(
             reqBuilder.header(k, v)
         }
 
+        val promptSummary = request.prompt.lines().firstOrNull()?.trim()?.take(50) ?: "Gemini Chat"
+        reqBuilder.tag(
+            com.geminiflow.app.data.network.RequestTelemetryTag::class.java,
+            com.geminiflow.app.data.network.RequestTelemetryTag(
+                promptSummary = promptSummary,
+                source = request.model
+            )
+        )
+
         val response = try {
             client.newCall(reqBuilder.build()).execute()
         } catch (e: Exception) {

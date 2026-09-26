@@ -1,10 +1,18 @@
 package com.geminiflow.app.data.api
 
+import com.geminiflow.app.data.api.filter.GeminiThoughtFilter
+import com.geminiflow.app.data.api.filter.ThoughtFilter
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.regex.Pattern
 
-class GeminiStreamParser {
+/**
+ * Gemini 串流回應解析引擎。
+ * 負責從 Batchexecute 原始回應中安全提取純淨正文、過濾思考推理歷程、偵測會話 ID 與提取生圖 URL。
+ */
+class GeminiStreamParser(
+    private val thoughtFilter: ThoughtFilter = GeminiThoughtFilter()
+) {
     var lastContent: String = ""
         private set
 
@@ -40,7 +48,7 @@ class GeminiStreamParser {
             return TextDeltaResult(null, null)
         }
 
-        // Extract session IDs (c_...)
+        // 提取會話 Session IDs (c_...)
         var sessionIds: List<String>? = null
         try {
             if (responsePart.length() > 1) {
@@ -59,8 +67,13 @@ class GeminiStreamParser {
         } catch (_: Exception) {
         }
 
-        // Extract content
-        val content = extractContent(responsePart) ?: return TextDeltaResult(null, sessionIds)
+        // 提取累積正文內容並嚴格過濾思考歷程與內部圖片網址
+        val rawContent = extractContent(responsePart) ?: return TextDeltaResult(null, sessionIds)
+        val content = sanitizeOutputText(rawContent)
+
+        if (content.isEmpty()) {
+            return TextDeltaResult(null, sessionIds)
+        }
 
         val delta = if (lastContent.isNotEmpty() && content.startsWith(lastContent)) {
             content.substring(lastContent.length)
@@ -69,7 +82,15 @@ class GeminiStreamParser {
         }
         lastContent = content
 
-        return TextDeltaResult(delta, sessionIds)
+        val finalDelta = if (delta.isBlank()) null else delta
+        return TextDeltaResult(finalDelta, sessionIds)
+    }
+
+    /**
+     * 純淨化輸出文字：委派給 ThoughtFilter 徹底過濾內部思考歷程與內部圖片佔位網址
+     */
+    fun sanitizeOutputText(rawText: String): String {
+        return thoughtFilter.filter(rawText)
     }
 
     private fun extractContent(responsePart: JSONArray): String? {
@@ -88,7 +109,7 @@ class GeminiStreamParser {
                         }
                     }
 
-                    // Fallback to longest candidate string
+                    // 降級搜索：在候選串中尋找非 metadata 的文字
                     val allStrings = mutableListOf<String>()
                     walkStrings(part4, allStrings)
                     if (allStrings.isNotEmpty()) {

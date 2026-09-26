@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -26,6 +27,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -44,21 +47,25 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.geminiflow.app.domain.model.MediaAsset
 import com.geminiflow.app.domain.model.PlaygroundChatMessage
 import com.geminiflow.app.presentation.notification.NotificationController
 import com.geminiflow.app.presentation.theme.AppColors
+import java.io.File
 
 /**
  * LensWise 風格連續對話氣泡組件。
  */
 @Composable
 fun PlaygroundChatBubble(
-    message: PlaygroundChatMessage
+    message: PlaygroundChatMessage,
+    onRetryMedia: ((assetId: String) -> Unit)? = null
 ) {
     if (message.isUser) {
         UserMessageBubble(message = message)
     } else {
-        AssistantMessageBubble(message = message)
+        AssistantMessageBubble(message = message, onRetryMedia = onRetryMedia)
     }
 }
 
@@ -102,7 +109,8 @@ private fun UserMessageBubble(
  */
 @Composable
 private fun AssistantMessageBubble(
-    message: PlaygroundChatMessage
+    message: PlaygroundChatMessage,
+    onRetryMedia: ((assetId: String) -> Unit)? = null
 ) {
     val context = LocalContext.current
 
@@ -164,24 +172,156 @@ private fun AssistantMessageBubble(
                             lineHeight = 22.sp,
                             color = AppColors.textPrimaryLight
                         )
-                    } else if (message.isStreaming) {
+                    } else if (message.isStreaming && message.mediaAssets.isEmpty()) {
                         ThinkingIndicator()
+                    } else if (!message.isStreaming && message.mediaAssets.isEmpty()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFFFFF1F2), RoundedCornerShape(8.dp))
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = "提示",
+                                tint = Color(0xFFE11D48),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = message.errorMessage ?: "伺服器未回傳有效輸出",
+                                fontSize = 12.sp,
+                                color = Color(0xFF9F1239)
+                            )
+                        }
                     }
 
-                    // 多模態圖片生成結果畫廊
-                    if (message.images.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        message.images.forEach { imagePath ->
-                            AsyncImage(
-                                model = imagePath,
-                                contentDescription = "生成圖片",
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(240.dp)
-                                    .clip(RoundedCornerShape(12.dp)),
-                                contentScale = ContentScale.Crop
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
+                    // 多模態圖片生成結果畫廊（依 MediaAsset 狀態機精確渲染）
+                    if (message.mediaAssets.isNotEmpty()) {
+                        if (message.text.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                        }
+                        message.mediaAssets.forEach { asset ->
+                            when (asset) {
+                                is MediaAsset.LocalReady -> {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(context)
+                                            .data(asset.localFile)
+                                            .crossfade(true)
+                                            .build(),
+                                        contentDescription = "生成圖片",
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(12.dp)),
+                                        contentScale = ContentScale.FillWidth
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                }
+                                is MediaAsset.Downloading -> {
+                                    Surface(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(180.dp)
+                                            .clip(RoundedCornerShape(12.dp)),
+                                        color = Color(0xFFF8FAFC),
+                                        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.fillMaxSize(),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.Center
+                                        ) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(28.dp),
+                                                color = Color(0xFF2563EB),
+                                                strokeWidth = 2.5.dp
+                                            )
+                                            Spacer(modifier = Modifier.height(12.dp))
+                                            Text(
+                                                text = "正在安全下載高畫質影像...",
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = Color(0xFF475569)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                }
+                                is MediaAsset.Failed -> {
+                                    Surface(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(12.dp)),
+                                        color = Color(0xFFFFF1F2),
+                                        border = BorderStroke(1.dp, Color(0xFFFECDD3))
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.weight(1f),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Info,
+                                                    contentDescription = "錯誤",
+                                                    tint = Color(0xFFE11D48),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Column {
+                                                    Text(
+                                                        text = "圖片下載失敗",
+                                                        fontSize = 13.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color(0xFF9F1239)
+                                                    )
+                                                    Text(
+                                                        text = asset.errorMessage,
+                                                        fontSize = 11.sp,
+                                                        color = Color(0xFFBE123C),
+                                                        maxLines = 2
+                                                    )
+                                                }
+                                            }
+                                            if (asset.canRetry && onRetryMedia != null) {
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Surface(
+                                                    modifier = Modifier.clickable { onRetryMedia(asset.id) },
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    color = Color(0xFFE11D48),
+                                                    shadowElevation = 1.dp
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Refresh,
+                                                            contentDescription = "重試",
+                                                            tint = Color.White,
+                                                            modifier = Modifier.size(12.dp)
+                                                        )
+                                                        Spacer(modifier = Modifier.width(4.dp))
+                                                        Text(
+                                                            text = "重新下載",
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.SemiBold,
+                                                            color = Color.White
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                }
+                            }
                         }
                     }
 

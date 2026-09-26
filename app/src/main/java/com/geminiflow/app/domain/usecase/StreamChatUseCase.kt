@@ -3,6 +3,7 @@ package com.geminiflow.app.domain.usecase
 import android.util.Log
 import com.geminiflow.app.domain.model.ChatRequest
 import com.geminiflow.app.domain.model.ChatResponseChunk
+import com.geminiflow.app.domain.model.MediaAsset
 import com.geminiflow.app.domain.model.SessionData
 import com.geminiflow.app.domain.model.TokenExpiredException
 import com.geminiflow.app.domain.repository.GeminiAuthRepository
@@ -11,7 +12,13 @@ import com.geminiflow.app.domain.repository.ImageRepository
 import com.geminiflow.app.domain.repository.SessionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import java.util.UUID
 
+/**
+ * 串流對話業務協調 UseCase。
+ * 負責金鑰/Cookie 生命週期管理、會話維持、以及多媒體資源（MediaAsset）的下載管線協調。
+ * 扮演 Anti-Corruption Layer (防腐層)，將底層原始 CDN 網址轉化為強型別之 MediaAsset 生命週期狀態。
+ */
 class StreamChatUseCase(
     private val authRepository: GeminiAuthRepository,
     private val chatRepository: GeminiChatRepository,
@@ -63,28 +70,45 @@ class StreamChatUseCase(
                 sessionRepository.saveSession(newSession)
             }
 
-            if (!chunk.imageUrl.isNullOrBlank()) {
-                var imgUrl = chunk.imageUrl
-                if (imgUrl.contains("googleusercontent.com")) {
-                    val parts = imgUrl.split("?", limit = 2)
-                    var base = parts[0]
-                    base = if (base.contains("=")) {
-                        base.replace(Regex("=[^=]*$"), "=s0-d")
-                    } else {
-                        "$base=s0-d"
-                    }
-                    imgUrl = if (parts.size > 1) "$base?${parts[1]}" else base
-                }
-
-                try {
-                    val downloadedFile = imageRepository.downloadImage(imgUrl, request.model)
-                    chunk.imageLocalPath = downloadedFile.name
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to download generated image: ${e.message}", e)
-                }
+            if (!chunk.text.isNullOrEmpty() || chunk.sessionIds != null) {
+                emit(ChatResponseChunk(text = chunk.text, sessionIds = chunk.sessionIds))
             }
 
-            emit(chunk)
+            if (!chunk.imageUrl.isNullOrBlank()) {
+                val rawUrl = chunk.imageUrl
+                val assetId = UUID.randomUUID().toString()
+
+                // 1. 先通知 UI 進入下載中狀態（骨架屏與進度提示）
+                emit(ChatResponseChunk(mediaAsset = MediaAsset.Downloading(id = assetId, rawUrl = rawUrl)))
+
+                // 2. 透過 ImageRepository (WebkitCookieJar 3-Hop Pipeline) 進行下載
+                try {
+                    val downloadedFile = imageRepository.downloadImage(rawUrl, request.model)
+                    Log.i(TAG, "Image successfully saved to local path: ${downloadedFile.absolutePath}")
+                    // 3. 成功落地：發送 LocalReady，UI 直接從本機檔案極速渲染
+                    emit(
+                        ChatResponseChunk(
+                            mediaAsset = MediaAsset.LocalReady(
+                                id = assetId,
+                                rawUrl = rawUrl,
+                                localFile = downloadedFile
+                            )
+                        )
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed downloading image from $rawUrl: ${e.message}", e)
+                    // 4. 失敗：發送 Failed，攜帶精確錯誤訊息，杜絕空白與靜默失敗
+                    emit(
+                        ChatResponseChunk(
+                            mediaAsset = MediaAsset.Failed(
+                                id = assetId,
+                                rawUrl = rawUrl,
+                                errorMessage = e.message ?: "圖片下載管線異常"
+                            )
+                        )
+                    )
+                }
+            }
         }
     }
 }

@@ -64,17 +64,20 @@ class GeminiFlowApplication : Application() {
     }
 
     private fun initDependencies() {
+        trafficLogManager = com.geminiflow.app.data.storage.TrafficLogManager()
+        val loggingInterceptor = com.geminiflow.app.data.network.TrafficLoggingInterceptor(trafficLogManager)
+
         okHttpClient = OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(120, TimeUnit.SECONDS)
             .writeTimeout(60, TimeUnit.SECONDS)
+            .addInterceptor(loggingInterceptor)
             .build()
 
         cookieHelper = CookieManagerHelper()
         authRepository = GeminiAuthRepositoryImpl(this, okHttpClient, cookieHelper)
         sessionRepository = SessionPreferencesRepository(this)
-        imageStorageManager = ImageStorageManager(this, okHttpClient, cookieHelper)
-        trafficLogManager = com.geminiflow.app.data.storage.TrafficLogManager()
+        imageStorageManager = ImageStorageManager(this)
         notificationLogManager = com.geminiflow.app.data.storage.NotificationLogManager(this)
         apiLogManager = com.geminiflow.app.data.storage.ApiLogManager(this)
         notificationController = com.geminiflow.app.presentation.notification.NotificationController(notificationLogManager)

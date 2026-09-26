@@ -2,10 +2,13 @@ package com.geminiflow.app.presentation.viewmodel
 
 import android.app.Activity
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.geminiflow.app.GeminiFlowApplication
 import com.geminiflow.app.domain.model.ChatRequest
+import com.geminiflow.app.domain.model.MediaAsset
+import com.geminiflow.app.domain.model.MessageDeliveryState
 import com.geminiflow.app.domain.model.PlaygroundChatMessage
 import com.geminiflow.app.domain.model.TrafficFilter
 import com.geminiflow.app.presentation.notification.NotificationController
@@ -21,6 +24,10 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class MainViewModel : ViewModel() {
+
+    companion object {
+        private const val TAG = "MainViewModel"
+    }
 
     private val app = GeminiFlowApplication.instance
     private val authRepo = app.authRepository
@@ -271,7 +278,8 @@ class MainViewModel : ViewModel() {
         val assistantMessage = PlaygroundChatMessage(
             isUser = false,
             text = "",
-            isStreaming = true
+            isStreaming = true,
+            deliveryState = MessageDeliveryState.STREAMING
         )
 
         _uiState.update {
@@ -282,9 +290,11 @@ class MainViewModel : ViewModel() {
             )
         }
 
+        val startTime = System.currentTimeMillis()
         playgroundJob = viewModelScope.launch {
             val textBuilder = StringBuilder()
-            val images = mutableListOf<String>()
+            val mediaAssets = mutableListOf<MediaAsset>()
+            var generationError: String? = null
 
             try {
                 val req = ChatRequest(
@@ -296,10 +306,15 @@ class MainViewModel : ViewModel() {
                     if (!chunk.text.isNullOrEmpty()) {
                         textBuilder.append(chunk.text)
                     }
-                    if (!chunk.imageLocalPath.isNullOrEmpty()) {
-                        images.add(chunk.imageLocalPath!!)
-                    } else if (!chunk.imageUrl.isNullOrEmpty()) {
-                        images.add(chunk.imageUrl!!)
+
+                    if (chunk.mediaAsset != null) {
+                        val asset = chunk.mediaAsset
+                        val existingIndex = mediaAssets.indexOfFirst { it.id == asset.id }
+                        if (existingIndex >= 0) {
+                            mediaAssets[existingIndex] = asset
+                        } else {
+                            mediaAssets.add(asset)
+                        }
                     }
 
                     _uiState.update { state ->
@@ -307,8 +322,9 @@ class MainViewModel : ViewModel() {
                             if (it.id == assistantMessage.id) {
                                 it.copy(
                                     text = textBuilder.toString(),
-                                    images = ArrayList(images),
-                                    isStreaming = true
+                                    mediaAssets = ArrayList(mediaAssets),
+                                    isStreaming = true,
+                                    deliveryState = MessageDeliveryState.STREAMING
                                 )
                             } else it
                         }
@@ -316,21 +332,143 @@ class MainViewModel : ViewModel() {
                     }
                 }
             } catch (e: Exception) {
-                textBuilder.append("\n[生成失敗: ${e.message}]")
+                generationError = e.message ?: "連線或生成失敗"
+                Log.e(TAG, "Playground generation failed: $generationError", e)
             } finally {
+                val durationMs = System.currentTimeMillis() - startTime
+                val finalResponseText = textBuilder.toString()
+
+                try {
+                    val reqJson = org.json.JSONObject().apply {
+                        put("prompt", prompt)
+                        put("model", _uiState.value.selectedModel)
+                    }
+                    val mediaJsonArray = org.json.JSONArray()
+                    for (asset in mediaAssets) {
+                        val obj = org.json.JSONObject().apply {
+                            put("id", asset.id)
+                            put("rawUrl", asset.rawUrl)
+                            when (asset) {
+                                is MediaAsset.LocalReady -> {
+                                    put("status", "SUCCESS")
+                                    put("localFilePath", asset.localFile.absolutePath)
+                                    put("sizeBytes", asset.sizeBytes)
+                                }
+                                is MediaAsset.Downloading -> {
+                                    put("status", "DOWNLOADING")
+                                }
+                                is MediaAsset.Failed -> {
+                                    put("status", "FAILED")
+                                    put("error", asset.errorMessage)
+                                }
+                            }
+                        }
+                        mediaJsonArray.put(obj)
+                    }
+                    val respJson = org.json.JSONObject().apply {
+                        put("text", finalResponseText)
+                        put("mediaAssets", mediaJsonArray)
+                        if (generationError != null) put("error", generationError)
+                    }
+                    apiLogManager.logInteraction(
+                        agentName = "Playground (${_uiState.value.selectedModel})",
+                        durationMs = durationMs,
+                        request = reqJson,
+                        response = respJson
+                    )
+                } catch (logEx: Exception) {
+                    Log.w(TAG, "Failed to record sandbox API log: ${logEx.message}")
+                }
+
+                val anyFailed = mediaAssets.any { it is MediaAsset.Failed }
+                val anyReady = mediaAssets.any { it is MediaAsset.LocalReady }
+                val finalState = when {
+                    generationError != null -> MessageDeliveryState.FAILED
+                    finalResponseText.isEmpty() && mediaAssets.isEmpty() -> MessageDeliveryState.FAILED
+                    finalResponseText.isEmpty() && anyFailed && !anyReady -> MessageDeliveryState.FAILED
+                    else -> MessageDeliveryState.SUCCESS
+                }
+                val finalErrMsg = generationError ?: if (finalResponseText.isEmpty() && mediaAssets.isEmpty()) {
+                    "伺服器未回傳有效輸出或圖片資源取得失敗"
+                } else if (finalResponseText.isEmpty() && anyFailed && !anyReady) {
+                    mediaAssets.filterIsInstance<MediaAsset.Failed>().firstOrNull()?.errorMessage ?: "圖片下載失敗"
+                } else null
+
                 _uiState.update { state ->
                     val updated = state.playgroundMessages.map {
                         if (it.id == assistantMessage.id) {
                             it.copy(
                                 text = textBuilder.toString(),
-                                images = ArrayList(images),
-                                isStreaming = false
+                                mediaAssets = ArrayList(mediaAssets),
+                                isStreaming = false,
+                                deliveryState = finalState,
+                                errorMessage = finalErrMsg
                             )
                         } else it
                     }
                     state.copy(isGenerating = false, playgroundMessages = updated)
                 }
                 refreshCacheStats()
+            }
+        }
+    }
+
+    fun retryMediaDownload(messageId: String, assetId: String) {
+        val targetMessage = _uiState.value.playgroundMessages.firstOrNull { it.id == messageId } ?: return
+        val targetAsset = targetMessage.mediaAssets.firstOrNull { it.id == assetId } ?: return
+        val rawUrl = targetAsset.rawUrl
+
+        viewModelScope.launch {
+            // 1. 設置為 Downloading 狀態
+            _uiState.update { state ->
+                val updated = state.playgroundMessages.map { msg ->
+                    if (msg.id == messageId) {
+                        val updatedAssets = msg.mediaAssets.map { asset ->
+                            if (asset.id == assetId) {
+                                MediaAsset.Downloading(id = assetId, rawUrl = rawUrl)
+                            } else asset
+                        }
+                        msg.copy(mediaAssets = updatedAssets)
+                    } else msg
+                }
+                state.copy(playgroundMessages = updated)
+            }
+
+            // 2. 重新調用 imageRepository.downloadImage
+            try {
+                val downloadedFile = app.imageStorageManager.downloadImage(rawUrl, _uiState.value.selectedModel)
+                _uiState.update { state ->
+                    val updated = state.playgroundMessages.map { msg ->
+                        if (msg.id == messageId) {
+                            val updatedAssets = msg.mediaAssets.map { asset ->
+                                if (asset.id == assetId) {
+                                    MediaAsset.LocalReady(id = assetId, rawUrl = rawUrl, localFile = downloadedFile)
+                                } else asset
+                            }
+                            msg.copy(
+                                mediaAssets = updatedAssets,
+                                deliveryState = MessageDeliveryState.SUCCESS,
+                                errorMessage = null
+                            )
+                        } else msg
+                    }
+                    state.copy(playgroundMessages = updated)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Retry download failed for $rawUrl: ${e.message}", e)
+                _uiState.update { state ->
+                    val updated = state.playgroundMessages.map { msg ->
+                        if (msg.id == messageId) {
+                            val updatedAssets = msg.mediaAssets.map { asset ->
+                                if (asset.id == assetId) {
+                                    MediaAsset.Failed(id = assetId, rawUrl = rawUrl, errorMessage = e.message ?: "重試下載失敗")
+                                } else asset
+                            }
+                            msg.copy(mediaAssets = updatedAssets)
+                        } else msg
+                    }
+                    state.copy(playgroundMessages = updated)
+                }
             }
         }
     }

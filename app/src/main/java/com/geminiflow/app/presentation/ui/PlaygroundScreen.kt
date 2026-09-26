@@ -204,7 +204,10 @@ fun PlaygroundScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             items(uiState.playgroundMessages, key = { it.id }) { message ->
-                                PlaygroundChatBubble(message = message)
+                                PlaygroundChatBubble(
+                                    message = message,
+                                    onRetryMedia = { assetId -> viewModel.retryMediaDownload(message.id, assetId) }
+                                )
                             }
                             item {
                                 Spacer(modifier = Modifier.height(10.dp))

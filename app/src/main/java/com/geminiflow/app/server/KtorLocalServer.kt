@@ -10,6 +10,7 @@ import com.geminiflow.app.data.storage.TrafficLogManager
 import com.geminiflow.app.domain.model.AuthenticationRequiredException
 import com.geminiflow.app.domain.model.ChatRequest
 import com.geminiflow.app.domain.model.ImagePayload
+import com.geminiflow.app.domain.model.MediaAsset
 import com.geminiflow.app.domain.model.NetworkException
 import com.geminiflow.app.domain.model.PayloadException
 import com.geminiflow.app.domain.model.ServerStatus
@@ -205,11 +206,9 @@ class KtorLocalServer(
                                 if (!chunk.text.isNullOrEmpty()) {
                                     textParts.append(chunk.text)
                                 }
-                                if (!chunk.imageLocalPath.isNullOrEmpty()) {
-                                    val filename = java.io.File(chunk.imageLocalPath!!).name
+                                if (chunk.mediaAsset is MediaAsset.LocalReady) {
+                                    val filename = (chunk.mediaAsset as MediaAsset.LocalReady).localFile.name
                                     imagesSaved.add("$scheme://$currentHost:$currentPort/images/$filename")
-                                } else if (!chunk.imageUrl.isNullOrEmpty()) {
-                                    imagesSaved.add(chunk.imageUrl!!)
                                 }
                             }
 
@@ -317,17 +316,11 @@ class KtorLocalServer(
                                             flush()
                                         }
 
-                                        if (!chunk.imageLocalPath.isNullOrEmpty()) {
-                                            val filename = java.io.File(chunk.imageLocalPath!!).name
+                                        if (chunk.mediaAsset is MediaAsset.LocalReady) {
+                                            val filename = (chunk.mediaAsset as MediaAsset.LocalReady).localFile.name
                                             val url = "$scheme://$currentHost:$currentPort/images/$filename"
                                             val dataJson = buildJsonObject {
                                                 put("url", url)
-                                            }.toString()
-                                            write("event: image\ndata: $dataJson\n\n")
-                                            flush()
-                                        } else if (!chunk.imageUrl.isNullOrEmpty()) {
-                                            val dataJson = buildJsonObject {
-                                                put("url", chunk.imageUrl!!)
                                             }.toString()
                                             write("event: image\ndata: $dataJson\n\n")
                                             flush()

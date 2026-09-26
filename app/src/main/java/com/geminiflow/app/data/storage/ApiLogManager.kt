@@ -75,7 +75,8 @@ class ApiLogManager(private val context: Context) {
                 val yyyyMMdd = SimpleDateFormat("yyyyMMdd", Locale.US).format(now)
                 val hhmmss = SimpleDateFormat("HHmmss", Locale.US).format(now)
                 val random = Random.nextInt(100000, 999999)
-                val fileName = "${yyyyMMdd}_${hhmmss}_${agentName}_${random}.json"
+                val safeAgentName = agentName.replace(Regex("[^a-zA-Z0-9_-]"), "_")
+                val fileName = "${yyyyMMdd}_${hhmmss}_${safeAgentName}_${random}.json"
                 val file = File(logDir, fileName)
 
                 val isoTimestamp = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSS", Locale.US).format(now)
