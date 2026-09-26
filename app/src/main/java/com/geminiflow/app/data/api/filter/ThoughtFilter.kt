@@ -39,10 +39,10 @@ class GeminiThoughtFilter : ThoughtFilter {
         RegexOption.IGNORE_CASE
     )
 
-    // 匹配思維鏈標題區塊，例如 **Thinking Process:** 或 **Envisioning Cyberpunk Taipei**
-    // 直到遇到水平分隔線、下一個非思考段落標題、或字串結尾
+    // 匹配思維鏈標題區塊，例如 **Gathering Inspiration for Scene**、**Thinking Process:**、**Envisioning Cyberpunk Taipei** 等
+    // 以現在分詞 (Present Participle, -ing) 或 Thinking/Thought/Reasoning 關鍵結構為特徵，消除有限動詞枚舉漏洞
     private val thoughtBlockRegex = Regex(
-        """(?:\*\*|#+)\s*(?:Thinking|Thought|Reasoning|Envisioning|Defining|Crafting|Visualizing|Analyzing|Examining|Brainstorming|Refining|Synthesizing|Considering|Drafting|Evaluating|Reflecting|Planning|Exploring|Developing|Designing|Structuring|Composing|Generating|Formulating|Investigating)[^*#\n]*\**[\s\S]*?(?=(?:\n\s*(?:---+|___+|\*\*\*(?!Thinking|Thought|Reasoning))|\Z))""",
+        """(?:\*\*|#+)\s*(?:[A-Za-z]+ing|Thought|Thinking|Reasoning|Reflection|Rationale)\b[^*#\n]*\**[\s\S]*?(?=(?:\n\s*(?:---+|___+)|${'$'}))""",
         RegexOption.IGNORE_CASE
     )
 
@@ -69,8 +69,7 @@ class GeminiThoughtFilter : ThoughtFilter {
         // 6. 如果剩餘的文字只是未閉合的思考標題（串流過程中剛輸出前半段）
         if (cleaned.startsWith("**") && !cleaned.contains("\n") && !cleaned.endsWith("**")) {
             val lower = cleaned.lowercase()
-            val thinkingKeywords = listOf("envision", "think", "reason", "craft", "visual", "analyz", "examin", "brainstorm", "defin")
-            if (thinkingKeywords.any { lower.contains(it) }) {
+            if (lower.contains("ing") || lower.contains("think") || lower.contains("thought") || lower.contains("reason")) {
                 return ""
             }
         }

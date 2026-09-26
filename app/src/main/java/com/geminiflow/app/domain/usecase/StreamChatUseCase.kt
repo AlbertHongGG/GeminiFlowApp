@@ -70,20 +70,72 @@ class StreamChatUseCase(
                 emit(ChatResponseChunk(text = chunk.text, sessionIds = chunk.sessionIds))
             }
 
-            if (!chunk.imageUrl.isNullOrBlank()) {
+            if (chunk.exportMetadata != null) {
+                val exportMeta = chunk.exportMetadata
+                val previewUrl = exportMeta.previewUrl
+                val assetId = UUID.randomUUID().toString()
+
+                emit(ChatResponseChunk(mediaAsset = MediaAsset.Downloading(id = assetId, rawUrl = previewUrl, exportMetadata = exportMeta)))
+
+                try {
+                    val validTokens = tokens ?: throw TokenExpiredException("缺少 Google 帳號授權 Token，無法執行 c8o8Fe 原圖導出")
+                    val downloadedFile = imageRepository.downloadExportedImage(
+                        metadata = exportMeta,
+                        modelName = request.model,
+                        tokens = validTokens,
+                        cookies = cookies
+                    )
+                    val mimeType = if (downloadedFile.extension.equals("jpg", true) || downloadedFile.extension.equals("jpeg", true)) {
+                        "image/jpeg"
+                    } else {
+                        "image/png"
+                    }
+                    emit(
+                        ChatResponseChunk(
+                            mediaAsset = MediaAsset.LocalReady(
+                                id = assetId,
+                                rawUrl = previewUrl,
+                                localFile = downloadedFile,
+                                mimeType = mimeType
+                            )
+                        )
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed downloading exported high-resolution image: ${e.message}", e)
+                    emit(
+                        ChatResponseChunk(
+                            mediaAsset = MediaAsset.Failed(
+                                id = assetId,
+                                rawUrl = previewUrl,
+                                errorMessage = e.message ?: "原圖導出失敗",
+                                exportMetadata = exportMeta
+                            )
+                        )
+                    )
+                }
+            } else if (!chunk.imageUrl.isNullOrBlank()) {
                 val rawUrl = chunk.imageUrl
                 val assetId = UUID.randomUUID().toString()
 
                 emit(ChatResponseChunk(mediaAsset = MediaAsset.Downloading(id = assetId, rawUrl = rawUrl)))
 
                 try {
-                    val downloadedFile = imageRepository.downloadImage(rawUrl, request.model)
+                    val downloadedFile = imageRepository.downloadImage(
+                        url = rawUrl,
+                        modelName = request.model
+                    )
+                    val mimeType = if (downloadedFile.extension.equals("jpg", true) || downloadedFile.extension.equals("jpeg", true)) {
+                        "image/jpeg"
+                    } else {
+                        "image/png"
+                    }
                     emit(
                         ChatResponseChunk(
                             mediaAsset = MediaAsset.LocalReady(
                                 id = assetId,
                                 rawUrl = rawUrl,
-                                localFile = downloadedFile
+                                localFile = downloadedFile,
+                                mimeType = mimeType
                             )
                         )
                     )

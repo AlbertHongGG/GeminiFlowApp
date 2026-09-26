@@ -27,6 +27,7 @@ class PlaygroundViewModel(application: Application) : AndroidViewModel(applicati
     private val app = application as GeminiFlowApplication
     private val streamChatUseCase = app.streamChatUseCase
     private val imageRepository = app.imageRepository
+    private val authRepository = app.authRepository
     private val apiLogManager = app.apiLogManager
 
     private val _uiState = MutableStateFlow(PlaygroundUiState())
@@ -206,6 +207,7 @@ class PlaygroundViewModel(application: Application) : AndroidViewModel(applicati
         val targetMessage = _uiState.value.playgroundMessages.firstOrNull { it.id == messageId } ?: return
         val targetAsset = targetMessage.mediaAssets.firstOrNull { it.id == assetId } ?: return
         val rawUrl = targetAsset.rawUrl
+        val targetMetadata = (targetAsset as? MediaAsset.Failed)?.exportMetadata
 
         viewModelScope.launch {
             _uiState.update { state ->
@@ -213,7 +215,7 @@ class PlaygroundViewModel(application: Application) : AndroidViewModel(applicati
                     if (msg.id == messageId) {
                         val updatedAssets = msg.mediaAssets.map { asset ->
                             if (asset.id == assetId) {
-                                MediaAsset.Downloading(id = assetId, rawUrl = rawUrl)
+                                MediaAsset.Downloading(id = assetId, rawUrl = rawUrl, exportMetadata = targetMetadata)
                             } else asset
                         }
                         msg.copy(mediaAssets = updatedAssets)
@@ -223,7 +225,21 @@ class PlaygroundViewModel(application: Application) : AndroidViewModel(applicati
             }
 
             try {
-                val downloadedFile = imageRepository.downloadImage(rawUrl, _uiState.value.selectedModel)
+                val downloadedFile = if (targetMetadata != null) {
+                    val tokens = authRepository.ensureValidTokens()
+                    val cookies = authRepository.getGoogleCookies()
+                    imageRepository.downloadExportedImage(
+                        metadata = targetMetadata,
+                        modelName = _uiState.value.selectedModel,
+                        tokens = tokens,
+                        cookies = cookies
+                    )
+                } else {
+                    imageRepository.downloadImage(
+                        url = rawUrl,
+                        modelName = _uiState.value.selectedModel
+                    )
+                }
                 _uiState.update { state ->
                     val updated = state.playgroundMessages.map { msg ->
                         if (msg.id == messageId) {
@@ -248,7 +264,12 @@ class PlaygroundViewModel(application: Application) : AndroidViewModel(applicati
                         if (msg.id == messageId) {
                             val updatedAssets = msg.mediaAssets.map { asset ->
                                 if (asset.id == assetId) {
-                                    MediaAsset.Failed(id = assetId, rawUrl = rawUrl, errorMessage = e.message ?: "重試下載失敗")
+                                    MediaAsset.Failed(
+                                        id = assetId,
+                                        rawUrl = rawUrl,
+                                        errorMessage = e.message ?: "重試下載失敗",
+                                        exportMetadata = targetMetadata
+                                    )
                                 } else asset
                             }
                             msg.copy(mediaAssets = updatedAssets)

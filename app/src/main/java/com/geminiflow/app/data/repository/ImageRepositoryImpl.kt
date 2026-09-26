@@ -7,6 +7,7 @@ import com.geminiflow.app.data.api.GeminiConfig
 import com.geminiflow.app.data.network.WebkitCookieJar
 import com.geminiflow.app.domain.model.cache.CachedImageItem
 import com.geminiflow.app.domain.model.common.ImageDownloadException
+import com.geminiflow.app.domain.model.export.ImageExportMetadata
 import com.geminiflow.app.domain.repository.ImageRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -28,7 +29,8 @@ class ImageRepositoryImpl(
     cookieJar: CookieJar = WebkitCookieJar(),
     customClient: OkHttpClient? = null,
     imagesDirProvider: (() -> File)? = null,
-    private val urlNormalizer: com.geminiflow.app.data.network.ImageUrlNormalizer = com.geminiflow.app.data.network.GoogleCdnUrlNormalizer()
+    private val urlNormalizer: com.geminiflow.app.data.network.ImageUrlNormalizer = com.geminiflow.app.data.network.GoogleCdnUrlNormalizer(),
+    private val exportService: com.geminiflow.app.domain.repository.ImageExportService? = null
 ) : ImageRepository {
 
     companion object {
@@ -55,16 +57,49 @@ class ImageRepositoryImpl(
         .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    override suspend fun downloadImage(url: String, modelName: String): File = withContext(Dispatchers.IO) {
+    override suspend fun downloadExportedImage(
+        metadata: ImageExportMetadata,
+        modelName: String,
+        tokens: com.geminiflow.app.domain.model.auth.GeminiTokens,
+        cookies: Map<String, String>
+    ): File = withContext(Dispatchers.IO) {
+        val service = exportService
+            ?: throw ImageDownloadException("未配置 ImageExportService，無法執行原圖導出")
+
+        val exportResult = service.exportHighResolutionImageUrl(
+            metadata = metadata,
+            tokens = tokens,
+            cookies = cookies
+        )
+        val exportUrl = exportResult.getOrElse { e ->
+            Log.e(TAG, "c8o8Fe 原圖導出失敗: ${e.message}", e)
+            throw ImageDownloadException("Google c8o8Fe 原圖導出失敗: ${e.message}", e)
+        }
+
+        performDownloadAndSave(exportUrl, modelName, skipNormalization = true)
+    }
+
+    override suspend fun downloadImage(
+        url: String,
+        modelName: String
+    ): File = withContext(Dispatchers.IO) {
+        performDownloadAndSave(url, modelName, skipNormalization = false)
+    }
+
+    private suspend fun performDownloadAndSave(
+        targetUrl: String,
+        modelName: String,
+        skipNormalization: Boolean
+    ): File = withContext(Dispatchers.IO) {
         val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
         val safeModel = modelName.replace(Regex("[^a-zA-Z0-9_-]"), "_")
         val baseFilename = "${timeStamp}_${safeModel}_generated"
         val tempFile = File(imagesDir, "$baseFilename.tmp")
 
-        if (url.startsWith("data:image/")) {
+        if (targetUrl.startsWith("data:image/")) {
             try {
-                val mime = url.substringAfter("data:").substringBefore(";")
-                val base64Data = url.substringAfter("base64,")
+                val mime = targetUrl.substringAfter("data:").substringBefore(";")
+                val base64Data = targetUrl.substringAfter("base64,")
                 val decodedBytes = java.util.Base64.getDecoder().decode(base64Data)
                 tempFile.writeBytes(decodedBytes)
 
@@ -94,10 +129,10 @@ class ImageRepositoryImpl(
             }
         }
 
-        val normalizedUrl = urlNormalizer.normalize(url)
+        val requestUrl = if (skipNormalization) targetUrl else urlNormalizer.normalize(targetUrl)
 
         val request = Request.Builder()
-            .url(normalizedUrl)
+            .url(requestUrl)
             .header("User-Agent", GeminiConfig.DEFAULT_USER_AGENT)
             .header("Referer", GeminiConfig.GEMINI_BASE_URL)
             .header("Origin", GeminiConfig.GEMINI_BASE_URL.removeSuffix("/"))
@@ -113,7 +148,7 @@ class ImageRepositoryImpl(
             if (!response.isSuccessful) {
                 val code = response.code
                 response.close()
-                throw ImageDownloadException("Google CDN 影像下載失敗，伺服器回傳 HTTP $code: $normalizedUrl")
+                throw ImageDownloadException("Google CDN 影像下載失敗，伺服器回傳 HTTP $code: $requestUrl")
             }
 
             val contentTypeHeader = response.header("Content-Type")

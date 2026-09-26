@@ -2,24 +2,19 @@ package com.geminiflow.app.data.api
 
 import com.geminiflow.app.data.api.filter.GeminiThoughtFilter
 import com.geminiflow.app.data.api.filter.ThoughtFilter
+import com.geminiflow.app.domain.model.export.ImageExportMetadata
 import org.json.JSONArray
-import org.json.JSONObject
-import java.util.regex.Pattern
 
 /**
  * Gemini 串流回應解析引擎。
- * 負責從 Batchexecute 原始回應中安全提取純淨正文、過濾思考推理歷程、偵測會話 ID 與提取生圖 URL。
+ * 負責從 Batchexecute 原始回應中安全提取純淨正文、過濾思考推理歷程、偵測會話 ID 與提取生圖導出中繼資料。
  */
 class GeminiStreamParser(
-    private val thoughtFilter: ThoughtFilter = GeminiThoughtFilter()
+    private val thoughtFilter: ThoughtFilter = GeminiThoughtFilter(),
+    private val imageBlockExtractor: GeminiImageBlockExtractor = GeminiImageBlockExtractor()
 ) {
     var lastContent: String = ""
         private set
-
-    private val urlPattern = Pattern.compile(
-        """(https?://(?:googleusercontent\.com|gstatic\.com|content-push\.googleapis\.com|lh3\.googleusercontent\.com)[^\s"'\\<]+)"""
-    )
-    private val controlCharsPattern = Pattern.compile("""[\x00-\x1F\x7F\u200B\u200C\u200D\uFEFF]""")
 
     data class TextDeltaResult(
         val delta: String?,
@@ -96,24 +91,15 @@ class GeminiStreamParser(
     private fun extractContent(responsePart: JSONArray): String? {
         try {
             if (responsePart.length() >= 5) {
-                val part4 = responsePart.optJSONArray(4)
-                if (part4 != null && part4.length() > 0) {
-                    val part4_0 = part4.optJSONArray(0)
-                    if (part4_0 != null && part4_0.length() > 1) {
-                        val part4_0_1 = part4_0.opt(1)
-                        if (part4_0_1 is JSONArray && part4_0_1.length() > 0) {
-                            val candidate = part4_0_1.optString(0, "")
-                            if (candidate.isNotEmpty()) return candidate
-                        } else if (part4_0_1 is String && part4_0_1.isNotEmpty()) {
-                            return part4_0_1
-                        }
-                    }
-
-                    // 降級搜索：在候選串中尋找非 metadata 的文字
-                    val allStrings = mutableListOf<String>()
-                    walkStrings(part4, allStrings)
-                    if (allStrings.isNotEmpty()) {
-                        return allStrings.maxByOrNull { it.length }
+                val part4 = responsePart.optJSONArray(4) ?: return null
+                val candidate = findCandidate(part4) ?: return null
+                if (candidate.length() > 1) {
+                    val contentNode = candidate.opt(1)
+                    if (contentNode is JSONArray && contentNode.length() > 0) {
+                        val text = contentNode.optString(0, "")
+                        if (text.isNotEmpty()) return text
+                    } else if (contentNode is String && contentNode.isNotEmpty()) {
+                        return contentNode
                     }
                 }
             }
@@ -122,81 +108,62 @@ class GeminiStreamParser(
         return null
     }
 
-    private fun walkStrings(element: Any?, results: MutableList<String>) {
-        when (element) {
-            is String -> {
-                if (element.isNotEmpty() && !element.startsWith("rc_")) {
-                    results.add(element)
-                }
+    private fun findCandidate(part4: JSONArray): JSONArray? {
+        if (part4.length() == 0) return null
+
+        // 1. 直接候選：part4[0] 即為候選陣列 [id, [content], ...]
+        val direct = part4.optJSONArray(0)
+        if (direct != null && direct.length() > 1) {
+            val second = direct.opt(1)
+            if (second is JSONArray || second is String) {
+                return direct
             }
-            is JSONArray -> {
-                for (i in 0 until element.length()) {
-                    walkStrings(element.opt(i), results)
-                }
-            }
-            is JSONObject -> {
-                val keys = element.keys()
-                while (keys.hasNext()) {
-                    walkStrings(element.opt(keys.next()), results)
+        }
+
+        // 2. 嵌套候選：part4[4][0] 為候選陣列 [ [id, [content], ...] ]
+        if (part4.length() >= 5) {
+            val nested = part4.optJSONArray(4)
+            if (nested != null && nested.length() > 0) {
+                val nestedFirst = nested.optJSONArray(0)
+                if (nestedFirst != null && nestedFirst.length() > 1) {
+                    val second = nestedFirst.opt(1)
+                    if (second is JSONArray || second is String) {
+                        return nestedFirst
+                    }
                 }
             }
         }
+
+        return null
     }
 
-    fun extractImageCandidates(rawLine: String): List<String> {
+
+
+    /**
+     * 從串流回應中直接提取結構化圖片導出中繼資料（用於 c8o8Fe 超高解析原圖導出）。
+     */
+    fun extractImageExportMetadata(rawLine: String): ImageExportMetadata? {
         val trimmed = rawLine.trim()
-        if (trimmed.isEmpty()) return emptyList()
+        if (trimmed.isEmpty()) return null
 
         val lineArray = try {
             JSONArray(trimmed)
         } catch (_: Exception) {
-            return emptyList()
+            return null
         }
 
-        if (lineArray.length() == 0) return emptyList()
-        val firstItem = lineArray.optJSONArray(0) ?: return emptyList()
-        if (firstItem.length() < 3) return emptyList()
+        if (lineArray.length() == 0) return null
+        val firstItem = lineArray.optJSONArray(0) ?: return null
+        if (firstItem.length() < 3) return null
 
-        val innerJsonStr = firstItem.optString(2, null) ?: return emptyList()
+        val innerJsonStr = firstItem.optString(2, null) ?: return null
         val responsePart = try {
             JSONArray(innerJsonStr)
         } catch (_: Exception) {
-            return emptyList()
+            return null
         }
 
-        val allStrings = mutableListOf<String>()
-        walkStrings(responsePart, allStrings)
-
-        val foundUrls = linkedSetOf<String>()
-        for (text in allStrings) {
-            if (text.startsWith("data:image/")) {
-                foundUrls.add(text)
-                continue
-            }
-            val matcher = urlPattern.matcher(text)
-            while (matcher.find()) {
-                val found = matcher.group(1)
-                if (!found.isNullOrEmpty()) {
-                    foundUrls.add(found)
-                }
-            }
-        }
-        return foundUrls.toList()
-    }
-
-    fun classifyImageUrl(url: String): String? {
-        val norm = controlCharsPattern.matcher(url.trim()).replaceAll("")
-        if (norm.isEmpty()) return null
-
-        if (norm.contains("googleusercontent.com/image_generation_content/") ||
-            (norm.contains("lh3.googleusercontent.com/gg/") && !norm.contains("lh3.googleusercontent.com/gg-dl/"))
-        ) {
-            return "placeholder"
-        }
-        if (norm.startsWith("data:image/") || norm.contains("lh3.googleusercontent.com/gg-dl/")) {
-            return "output"
-        }
-        return null
+        return imageBlockExtractor.extract(responsePart)
     }
 
     fun reset() {

@@ -171,8 +171,8 @@ class ChatRepositoryImpl(
 
         val parser = GeminiStreamParser()
         var emittedSessionIds = false
-        var finalImageCandidate: String? = null
-        var fallbackImageCandidate: String? = null
+        var latestSessionIds: List<String>? = null
+        var latestExportMetadata: com.geminiflow.app.domain.model.export.ImageExportMetadata? = null
 
         val reader = BufferedReader(InputStreamReader(responseBody.byteStream(), Charsets.UTF_8))
         try {
@@ -181,23 +181,19 @@ class ChatRepositoryImpl(
                 val currentLine = line ?: continue
                 if (currentLine.isBlank()) continue
 
-                val imageCandidates = parser.extractImageCandidates(currentLine)
-                for (url in imageCandidates) {
-                    when (parser.classifyImageUrl(url)) {
-                        "placeholder" -> {
-                            if (fallbackImageCandidate == null) fallbackImageCandidate = url
-                        }
-                        "output" -> {
-                            finalImageCandidate = url
-                        }
-                    }
+                val exportMeta = parser.extractImageExportMetadata(currentLine)
+                if (exportMeta != null) {
+                    latestExportMetadata = exportMeta
                 }
 
                 val (delta, sessionIds) = parser.extractTextDelta(currentLine)
 
-                if (sessionIds != null && !emittedSessionIds) {
-                    emittedSessionIds = true
-                    emit(ChatResponseChunk(sessionIds = sessionIds))
+                if (sessionIds != null) {
+                    latestSessionIds = sessionIds
+                    if (!emittedSessionIds) {
+                        emittedSessionIds = true
+                        emit(ChatResponseChunk(sessionIds = sessionIds))
+                    }
                 }
 
                 if (!delta.isNullOrEmpty()) {
@@ -209,9 +205,14 @@ class ChatRepositoryImpl(
             response.close()
         }
 
-        val bestImage = finalImageCandidate ?: fallbackImageCandidate
-        if (!bestImage.isNullOrEmpty()) {
-            emit(ChatResponseChunk(imageUrl = bestImage))
+        if (latestExportMetadata != null) {
+            emit(
+                ChatResponseChunk(
+                    imageUrl = latestExportMetadata.previewUrl,
+                    sessionIds = latestSessionIds,
+                    exportMetadata = latestExportMetadata
+                )
+            )
         }
     }.flowOn(Dispatchers.IO)
 }

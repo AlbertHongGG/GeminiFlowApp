@@ -8,6 +8,7 @@ import android.os.Build
 import com.geminiflow.app.data.auth.CookieManagerHelper
 import com.geminiflow.app.data.media.AndroidMediaExporter
 import com.geminiflow.app.data.network.TrafficLoggingInterceptor
+import com.geminiflow.app.data.network.export.GeminiImageExportService
 import com.geminiflow.app.data.repository.AuthRepositoryImpl
 import com.geminiflow.app.data.repository.ChatRepositoryImpl
 import com.geminiflow.app.data.repository.ImageRepositoryImpl
@@ -89,7 +90,8 @@ class GeminiFlowApplication : Application() {
         cookieHelper = CookieManagerHelper()
         authRepository = AuthRepositoryImpl(this, okHttpClient, cookieHelper)
         sessionRepository = SessionRepositoryImpl(this)
-        imageRepository = ImageRepositoryImpl(this)
+        val imageExportService = GeminiImageExportService(okHttpClient)
+        imageRepository = ImageRepositoryImpl(this, exportService = imageExportService)
         mediaExporter = AndroidMediaExporter(this)
         chatRepository = ChatRepositoryImpl(okHttpClient)
 

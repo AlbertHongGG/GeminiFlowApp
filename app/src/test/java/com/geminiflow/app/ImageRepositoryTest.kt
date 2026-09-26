@@ -32,7 +32,10 @@ class ImageRepositoryTest {
         )
 
         val base64Data = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
-        val file = repository.downloadImage(base64Data, "gemini-3-pro")
+        val file = repository.downloadImage(
+            url = base64Data,
+            modelName = "gemini-3-pro"
+        )
 
         assertTrue(file.exists())
         assertTrue(file.length() > 0)
@@ -67,7 +70,10 @@ class ImageRepositoryTest {
         )
 
         val targetUrl = "https://lh3.googleusercontent.com/gg-dl/mock_image_token"
-        val file = repository.downloadImage(targetUrl, "gemini-flash")
+        val file = repository.downloadImage(
+            url = targetUrl,
+            modelName = "gemini-flash"
+        )
 
         assertTrue(file.exists())
         assertEquals(fakeImageData.size.toLong(), file.length())
@@ -105,11 +111,115 @@ class ImageRepositoryTest {
         )
 
         val targetUrl = "https://lh3.googleusercontent.com/gg-dl/mock_jpeg_token"
-        val file = repository.downloadImage(targetUrl, "gemini-3-pro")
+        val file = repository.downloadImage(
+            url = targetUrl,
+            modelName = "gemini-3-pro"
+        )
 
         assertTrue(file.exists())
         assertEquals(fakeJpegData.size.toLong(), file.length())
         assertTrue(file.name.endsWith(".jpg"))
+    }
+
+    @Test
+    fun testHttpDownload_WithExportService_DownloadsHighResUrl() = kotlinx.coroutines.runBlocking {
+        val fakeJpegData = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte(), 0x00, 0x10, 0x4A, 0x46)
+        var requestedUrl: String? = null
+
+        val mockInterceptor = Interceptor { chain ->
+            val req = chain.request()
+            requestedUrl = req.url.toString()
+            Response.Builder()
+                .request(req)
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .body(fakeJpegData.toResponseBody("image/jpeg".toMediaType()))
+                .build()
+        }
+
+        val testClient = OkHttpClient.Builder()
+            .addInterceptor(mockInterceptor)
+            .build()
+
+        val mockExportService = object : com.geminiflow.app.domain.repository.ImageExportService {
+            override suspend fun exportHighResolutionImageUrl(
+                metadata: com.geminiflow.app.domain.model.export.ImageExportMetadata,
+                tokens: com.geminiflow.app.domain.model.auth.GeminiTokens,
+                cookies: Map<String, String>
+            ): Result<String> {
+                return Result.success("https://lh3.googleusercontent.com/gg-dl/high_res_2816x1536=s0")
+            }
+        }
+
+        val repository = ImageRepositoryImpl(
+            context = stubContext,
+            customClient = testClient,
+            imagesDirProvider = { tempFolder.root },
+            exportService = mockExportService
+        )
+
+        val targetUrl = "https://lh3.googleusercontent.com/gg-dl/preview_1408x768"
+        val metadata = com.geminiflow.app.domain.model.export.ImageExportMetadata(
+            conversationId = "c_1",
+            responseId = "r_2",
+            choiceId = "rc_3",
+            imageId = "im_1",
+            imageBlockJson = "[]",
+            previewUrl = targetUrl
+        )
+
+        val file = repository.downloadExportedImage(
+            metadata = metadata,
+            modelName = "gemini-3-pro",
+            tokens = com.geminiflow.app.domain.model.auth.GeminiTokens("at_token", "sid"),
+            cookies = mapOf("c" to "v")
+        )
+
+        assertTrue(file.exists())
+        assertEquals("https://lh3.googleusercontent.com/gg-dl/high_res_2816x1536=s0", requestedUrl)
+    }
+
+    @Test
+    fun testHttpDownload_ExportFails_ThrowsExceptionExplicitlyWithoutFallback() = kotlinx.coroutines.runBlocking {
+        val mockExportService = object : com.geminiflow.app.domain.repository.ImageExportService {
+            override suspend fun exportHighResolutionImageUrl(
+                metadata: com.geminiflow.app.domain.model.export.ImageExportMetadata,
+                tokens: com.geminiflow.app.domain.model.auth.GeminiTokens,
+                cookies: Map<String, String>
+            ): Result<String> {
+                return Result.failure(java.io.IOException("Google c8o8Fe 導出錯誤代碼 [13]"))
+            }
+        }
+
+        val repository = ImageRepositoryImpl(
+            context = stubContext,
+            imagesDirProvider = { tempFolder.root },
+            exportService = mockExportService
+        )
+
+        val targetUrl = "https://lh3.googleusercontent.com/gg-dl/preview_1408x768"
+        val metadata = com.geminiflow.app.domain.model.export.ImageExportMetadata(
+            conversationId = "c_1",
+            responseId = "r_2",
+            choiceId = "rc_3",
+            imageId = "im_1",
+            imageBlockJson = "[]",
+            previewUrl = targetUrl
+        )
+
+        try {
+            repository.downloadExportedImage(
+                metadata = metadata,
+                modelName = "gemini-3-pro",
+                tokens = com.geminiflow.app.domain.model.auth.GeminiTokens("at_token", "sid"),
+                cookies = mapOf("c" to "v")
+            )
+            org.junit.Assert.fail("應當顯性拋出 ImageDownloadException")
+        } catch (e: Exception) {
+            assertTrue(e is com.geminiflow.app.domain.model.common.ImageDownloadException)
+            assertTrue(e.message?.contains("c8o8Fe") == true)
+        }
     }
 
     @Test
