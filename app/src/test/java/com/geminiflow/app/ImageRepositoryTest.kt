@@ -71,11 +71,84 @@ class ImageRepositoryTest {
 
         assertTrue(file.exists())
         assertEquals(fakeImageData.size.toLong(), file.length())
+        assertTrue(file.name.endsWith(".png"))
 
         val recorded = recordedRequest!!
         assertEquals("image", recorded.header("Sec-Fetch-Dest"))
         assertEquals("cross-site", recorded.header("Sec-Fetch-Site"))
         assertTrue(recorded.header("User-Agent")!!.contains("Mozilla"))
+        assertEquals("https://lh3.googleusercontent.com/gg-dl/mock_image_token=s0-d", recorded.url.toString())
+    }
+
+    @Test
+    fun testHttpDownload_DetectsJpegMagicBytes_SavesAsJpg() = kotlinx.coroutines.runBlocking {
+        val fakeJpegData = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte(), 0x00, 0x10, 0x4A, 0x46)
+        val mockInterceptor = Interceptor { chain ->
+            val req = chain.request()
+            Response.Builder()
+                .request(req)
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .body(fakeJpegData.toResponseBody("application/octet-stream".toMediaType()))
+                .build()
+        }
+
+        val testClient = OkHttpClient.Builder()
+            .addInterceptor(mockInterceptor)
+            .build()
+
+        val repository = ImageRepositoryImpl(
+            context = stubContext,
+            customClient = testClient,
+            imagesDirProvider = { tempFolder.root }
+        )
+
+        val targetUrl = "https://lh3.googleusercontent.com/gg-dl/mock_jpeg_token"
+        val file = repository.downloadImage(targetUrl, "gemini-3-pro")
+
+        assertTrue(file.exists())
+        assertEquals(fakeJpegData.size.toLong(), file.length())
+        assertTrue(file.name.endsWith(".jpg"))
+    }
+
+    @Test
+    fun testGoogleCdnUrlNormalizer_RewritesToS0D() {
+        val normalizer = com.geminiflow.app.data.network.GoogleCdnUrlNormalizer()
+
+        // 1. 帶有預設縮圖參數 =s512 應被替換為 =s0-d
+        assertEquals(
+            "https://lh3.googleusercontent.com/gg-dl/token=s0-d",
+            normalizer.normalize("https://lh3.googleusercontent.com/gg-dl/token=s512")
+        )
+
+        // 2. 帶有寬高裁切參數 =w1024-h768 應被替換為 =s0-d
+        assertEquals(
+            "https://lh3.googleusercontent.com/gg-dl/token=s0-d",
+            normalizer.normalize("https://lh3.googleusercontent.com/gg-dl/token=w1024-h768")
+        )
+
+        // 3. 無尾端參數的 googleusercontent 網址應自動追加 =s0-d
+        assertEquals(
+            "https://lh3.googleusercontent.com/gg-dl/token=s0-d",
+            normalizer.normalize("https://lh3.googleusercontent.com/gg-dl/token")
+        )
+
+        // 4. 帶有 query 參數 (?authuser=0) 應保留 query 並將 base 替換為 =s0-d
+        assertEquals(
+            "https://lh3.googleusercontent.com/gg-dl/token=s0-d?authuser=0",
+            normalizer.normalize("https://lh3.googleusercontent.com/gg-dl/token=s512?authuser=0")
+        )
+
+        // 5. 非 Google 網址應保持原樣
+        assertEquals(
+            "https://example.com/image.png",
+            normalizer.normalize("https://example.com/image.png")
+        )
+
+        // 6. Data URI 應保持原樣
+        val dataUri = "data:image/png;base64,iVBORw0KGgo="
+        assertEquals(dataUri, normalizer.normalize(dataUri))
     }
 
     @Test

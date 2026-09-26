@@ -27,7 +27,8 @@ class ImageRepositoryImpl(
     private val context: Context,
     cookieJar: CookieJar = WebkitCookieJar(),
     customClient: OkHttpClient? = null,
-    imagesDirProvider: (() -> File)? = null
+    imagesDirProvider: (() -> File)? = null,
+    private val urlNormalizer: com.geminiflow.app.data.network.ImageUrlNormalizer = com.geminiflow.app.data.network.GoogleCdnUrlNormalizer()
 ) : ImageRepository {
 
     companion object {
@@ -57,31 +58,46 @@ class ImageRepositoryImpl(
     override suspend fun downloadImage(url: String, modelName: String): File = withContext(Dispatchers.IO) {
         val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
         val safeModel = modelName.replace(Regex("[^a-zA-Z0-9_-]"), "_")
-        val filename = "${timeStamp}_${safeModel}_generated.png"
-        val targetFile = File(imagesDir, filename)
-        val tempFile = File(imagesDir, "$filename.tmp")
+        val baseFilename = "${timeStamp}_${safeModel}_generated"
+        val tempFile = File(imagesDir, "$baseFilename.tmp")
 
         if (url.startsWith("data:image/")) {
             try {
+                val mime = url.substringAfter("data:").substringBefore(";")
                 val base64Data = url.substringAfter("base64,")
                 val decodedBytes = java.util.Base64.getDecoder().decode(base64Data)
-                targetFile.writeBytes(decodedBytes)
+                tempFile.writeBytes(decodedBytes)
+
+                val formatFromBytes = com.geminiflow.app.domain.model.cache.ImageFormat.fromHeaderBytes(decodedBytes)
+                val format = if (formatFromBytes != com.geminiflow.app.domain.model.cache.ImageFormat.UNKNOWN) {
+                    formatFromBytes
+                } else {
+                    com.geminiflow.app.domain.model.cache.ImageFormat.fromMimeType(mime)
+                }
+
+                val targetFile = File(imagesDir, "$baseFilename.${format.extension}")
+                if (targetFile.exists()) {
+                    targetFile.delete()
+                }
+                val renamed = tempFile.renameTo(targetFile)
+                if (!renamed) {
+                    tempFile.copyTo(targetFile, overwrite = true)
+                    tempFile.delete()
+                }
+
                 _cacheInvalidationEvents.tryEmit(Unit)
                 return@withContext targetFile
             } catch (e: Exception) {
+                tempFile.delete()
                 Log.e(TAG, "Base64 decode failed: ${e.message}", e)
                 throw ImageDownloadException("Base64 圖片解碼失敗: ${e.message}", e)
             }
         }
 
-        val safeUrl = if (url.startsWith("http://")) {
-            "https://" + url.removePrefix("http://")
-        } else {
-            url
-        }
+        val normalizedUrl = urlNormalizer.normalize(url)
 
         val request = Request.Builder()
-            .url(safeUrl)
+            .url(normalizedUrl)
             .header("User-Agent", GeminiConfig.DEFAULT_USER_AGENT)
             .header("Referer", GeminiConfig.GEMINI_BASE_URL)
             .header("Origin", GeminiConfig.GEMINI_BASE_URL.removeSuffix("/"))
@@ -97,9 +113,10 @@ class ImageRepositoryImpl(
             if (!response.isSuccessful) {
                 val code = response.code
                 response.close()
-                throw ImageDownloadException("Google CDN 影像下載失敗，伺服器回傳 HTTP $code: $safeUrl")
+                throw ImageDownloadException("Google CDN 影像下載失敗，伺服器回傳 HTTP $code: $normalizedUrl")
             }
 
+            val contentTypeHeader = response.header("Content-Type")
             val body = response.body ?: throw ImageDownloadException("Google CDN 回傳資料為空")
             
             FileOutputStream(tempFile).use { output ->
@@ -112,6 +129,24 @@ class ImageRepositoryImpl(
                 throw ImageDownloadException("下載的影像檔案長度為 0 位元組")
             }
 
+            // 讀取開頭 16 位元組進行二進位 Magic Bytes 格式特徵比對
+            val headerBytes = ByteArray(16)
+            var readCount = 0
+            tempFile.inputStream().use { readCount = it.read(headerBytes) }
+
+            val formatFromBytes = if (readCount >= 3) {
+                com.geminiflow.app.domain.model.cache.ImageFormat.fromHeaderBytes(headerBytes)
+            } else {
+                com.geminiflow.app.domain.model.cache.ImageFormat.UNKNOWN
+            }
+
+            val format = if (formatFromBytes != com.geminiflow.app.domain.model.cache.ImageFormat.UNKNOWN) {
+                formatFromBytes
+            } else {
+                com.geminiflow.app.domain.model.cache.ImageFormat.fromMimeType(contentTypeHeader)
+            }
+
+            val targetFile = File(imagesDir, "$baseFilename.${format.extension}")
             if (targetFile.exists()) {
                 targetFile.delete()
             }
@@ -130,7 +165,7 @@ class ImageRepositoryImpl(
     }
 
     override fun getCacheStats(): Pair<Int, Long> {
-        val files = imagesDir.listFiles()?.filter { it.isFile } ?: emptyList()
+        val files = imagesDir.listFiles()?.filter { it.isFile && !it.name.endsWith(".tmp") } ?: emptyList()
         val count = files.size
         val bytes = files.sumOf { it.length() }
         return Pair(count, bytes)
@@ -143,12 +178,33 @@ class ImageRepositoryImpl(
     }
 
     override suspend fun getAllCachedImages(): List<CachedImageItem> = withContext(Dispatchers.IO) {
-        val files = imagesDir.listFiles()?.filter { it.isFile && it.length() > 0 } ?: emptyList()
+        val rawFiles = imagesDir.listFiles()?.filter { it.isFile && it.length() > 0 && !it.name.endsWith(".tmp") } ?: emptyList()
         val yearMonthFormat = SimpleDateFormat("yyyy-MM", Locale.US)
         val yearMonthDisplayFormat = SimpleDateFormat("yyyy 年 M 月", Locale.TAIWAN)
         val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
 
-        files.sortedByDescending { it.lastModified() }.map { file ->
+        rawFiles.sortedByDescending { it.lastModified() }.map { rawFile ->
+            // 二進位特徵檢驗真實格式
+            val headerBytes = ByteArray(16)
+            var readCount = 0
+            try {
+                rawFile.inputStream().use { readCount = it.read(headerBytes) }
+            } catch (_: Exception) {}
+
+            val formatFromBytes = if (readCount >= 3) {
+                com.geminiflow.app.domain.model.cache.ImageFormat.fromHeaderBytes(headerBytes)
+            } else {
+                com.geminiflow.app.domain.model.cache.ImageFormat.UNKNOWN
+            }
+
+            // 若實體為 JPEG 但副檔名為 .png，自動修復重命名為標準 .jpg
+            val file = if (formatFromBytes == com.geminiflow.app.domain.model.cache.ImageFormat.JPEG && rawFile.name.endsWith(".png", ignoreCase = true)) {
+                val corrected = File(rawFile.parentFile, rawFile.nameWithoutExtension + ".jpg")
+                if (rawFile.renameTo(corrected)) corrected else rawFile
+            } else {
+                rawFile
+            }
+
             val lastModified = file.lastModified()
             val date = Date(lastModified)
             val modelName = GENERATED_FILE_REGEX.matchEntire(file.name)?.groupValues?.getOrNull(2)
@@ -157,6 +213,16 @@ class ImageRepositoryImpl(
             BitmapFactory.decodeFile(file.absolutePath, options)
             val width = options.outWidth.coerceAtLeast(0)
             val height = options.outHeight.coerceAtLeast(0)
+            val outMime = options.outMimeType
+
+            val finalFormat = when {
+                formatFromBytes != com.geminiflow.app.domain.model.cache.ImageFormat.UNKNOWN -> formatFromBytes
+                !outMime.isNullOrBlank() -> com.geminiflow.app.domain.model.cache.ImageFormat.fromMimeType(outMime)
+                file.extension.equals("jpg", true) || file.extension.equals("jpeg", true) -> com.geminiflow.app.domain.model.cache.ImageFormat.JPEG
+                file.extension.equals("png", true) -> com.geminiflow.app.domain.model.cache.ImageFormat.PNG
+                file.extension.equals("webp", true) -> com.geminiflow.app.domain.model.cache.ImageFormat.WEBP
+                else -> com.geminiflow.app.domain.model.cache.ImageFormat.UNKNOWN
+            }
 
             CachedImageItem(
                 filename = file.name,
@@ -168,7 +234,8 @@ class ImageRepositoryImpl(
                 formattedDate = dateFormat.format(date),
                 modelName = modelName,
                 width = width,
-                height = height
+                height = height,
+                format = finalFormat
             )
         }
     }

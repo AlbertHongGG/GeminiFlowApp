@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DeleteOutline
@@ -27,19 +26,16 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -48,6 +44,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.geminiflow.app.domain.model.cache.CachedImageItem
 import com.geminiflow.app.presentation.features.cacheviewer.components.ImageMetadataDrawer
+import com.geminiflow.app.presentation.features.cacheviewer.components.rememberZoomableImageState
 import com.geminiflow.app.presentation.theme.AppColors
 
 @Composable
@@ -72,14 +69,12 @@ fun ImageDetailScreen(
     }
 
     val context = LocalContext.current
-    var scale by remember { mutableFloatStateOf(1f) }
-    var offset by remember { mutableStateOf(Offset.Zero) }
+    val zoomState = rememberZoomableImageState()
     var showInfoDrawer by rememberSaveable { mutableStateOf(false) }
     var showDeleteConfirmDialog by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(item.filename) {
-        scale = 1f
-        offset = Offset.Zero
+        zoomState.reset()
     }
 
     Box(
@@ -87,35 +82,23 @@ fun ImageDetailScreen(
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        // 互動式影像縮放與平移畫布
+        // 互動式高解析度影像縮放與真幾何平移畫布
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .onSizeChanged { size ->
+                    zoomState.updateDimensions(size, item.width, item.height)
+                }
                 .pointerInput(item.filename) {
                     detectTapGestures(
-                        onDoubleTap = {
-                            if (scale > 1.2f) {
-                                scale = 1f
-                                offset = Offset.Zero
-                            } else {
-                                scale = 2.5f
-                            }
+                        onDoubleTap = { tapOffset ->
+                            zoomState.handleDoubleTap(tapOffset)
                         }
                     )
                 }
                 .pointerInput(item.filename) {
-                    detectTransformGestures { _, pan, zoom, _ ->
-                        val newScale = (scale * zoom).coerceIn(1f, 5f)
-                        scale = newScale
-                        offset = if (newScale > 1f) {
-                            val maxOffset = 500f * (newScale - 1f)
-                            Offset(
-                                x = (offset.x + pan.x).coerceIn(-maxOffset, maxOffset),
-                                y = (offset.y + pan.y).coerceIn(-maxOffset, maxOffset)
-                            )
-                        } else {
-                            Offset.Zero
-                        }
+                    detectTransformGestures { centroid, pan, zoom, _ ->
+                        zoomState.onTransform(centroid, pan, zoom)
                     }
                 },
             contentAlignment = Alignment.Center
@@ -123,18 +106,29 @@ fun ImageDetailScreen(
             AsyncImage(
                 model = ImageRequest.Builder(context)
                     .data(item.file)
+                    .size(coil.size.Size.ORIGINAL)
+                    .precision(coil.size.Precision.EXACT)
                     .crossfade(true)
                     .build(),
                 contentDescription = item.filename,
                 contentScale = ContentScale.Fit,
+                onSuccess = { success ->
+                    val drawable = success.result.drawable
+                    if (drawable.intrinsicWidth > 0 && drawable.intrinsicHeight > 0) {
+                        zoomState.updateDimensions(
+                            zoomState.viewportSize,
+                            drawable.intrinsicWidth,
+                            drawable.intrinsicHeight
+                        )
+                    }
+                },
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 8.dp, vertical = 50.dp)
                     .graphicsLayer {
-                        scaleX = scale
-                        scaleY = scale
-                        translationX = offset.x
-                        translationY = offset.y
+                        scaleX = zoomState.scale.value
+                        scaleY = zoomState.scale.value
+                        translationX = zoomState.offset.value.x
+                        translationY = zoomState.offset.value.y
                     }
             )
         }

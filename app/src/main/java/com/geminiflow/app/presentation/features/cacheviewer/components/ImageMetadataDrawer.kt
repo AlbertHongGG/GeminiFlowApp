@@ -103,7 +103,11 @@ fun ImageMetadataDrawer(
                 Box(modifier = Modifier.weight(1f)) {
                     MetadataCompactCard(
                         label = "圖片格式",
-                        value = item.file.extension.uppercase()
+                        value = if (item.format != com.geminiflow.app.domain.model.cache.ImageFormat.UNKNOWN) {
+                            item.format.displayName
+                        } else {
+                            item.file.extension.uppercase()
+                        }
                     )
                 }
             }

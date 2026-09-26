@@ -12,7 +12,8 @@ data class CachedImageItem(
     val formattedDate: String,
     val modelName: String? = null,
     val width: Int = 0,
-    val height: Int = 0
+    val height: Int = 0,
+    val format: ImageFormat = ImageFormat.UNKNOWN
 )
 
 data class CachedImageMonthGroup(
