@@ -23,6 +23,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import com.geminiflow.app.presentation.components.NavigationBarsSafeSpacer
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -156,8 +157,8 @@ fun ServerHubScreen(
                 cacheFilesCount = uiState.cacheFilesCount
             )
 
-            // 5. 底部自然留白
-            Spacer(modifier = Modifier.height(24.dp).navigationBarsPadding())
+            // 5. 底部自適應導航列安全留白
+            NavigationBarsSafeSpacer(extraHeight = 32.dp)
         }
     }
 }

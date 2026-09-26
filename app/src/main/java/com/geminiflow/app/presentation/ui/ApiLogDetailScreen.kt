@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.geminiflow.app.presentation.components.ImmersiveScaffold
 import com.geminiflow.app.presentation.components.JsonTreeViewer
+import com.geminiflow.app.presentation.components.NavigationBarsSafeSpacer
 import org.json.JSONObject
 
 /**
@@ -148,7 +149,7 @@ fun ApiLogDetailScreen(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(48.dp))
+                    NavigationBarsSafeSpacer(extraHeight = 32.dp)
                 }
             }
         }

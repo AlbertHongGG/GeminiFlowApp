@@ -25,9 +25,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/**
- * 底部滑動抹除抽屜 (ClearLogsDrawer)，復刻 LensWise 的 _showClearAllDrawer 設計。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClearLogsDrawer(

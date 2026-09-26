@@ -45,6 +45,7 @@ import com.geminiflow.app.presentation.components.GfButton
 import com.geminiflow.app.presentation.components.GfButtonVariant
 import com.geminiflow.app.presentation.components.ImmersiveBottomSheet
 import com.geminiflow.app.presentation.components.ImmersiveScaffold
+import com.geminiflow.app.presentation.components.NavigationBarsSafeSpacer
 import com.geminiflow.app.presentation.components.PremiumConfigHeader
 import com.geminiflow.app.presentation.components.SettingsDivider
 import com.geminiflow.app.presentation.components.SettingsSection
@@ -251,7 +252,7 @@ fun SettingsPage(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp).navigationBarsPadding())
+            NavigationBarsSafeSpacer(extraHeight = 36.dp)
         }
     }
 }

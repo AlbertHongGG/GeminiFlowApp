@@ -6,17 +6,13 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -24,44 +20,26 @@ import androidx.compose.material.icons.outlined.CheckCircleOutline
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.WarningAmber
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.geminiflow.app.data.storage.NotificationLogEntry
 import com.geminiflow.app.data.storage.NotificationLogManager
 import com.geminiflow.app.domain.model.NotificationType
-import com.geminiflow.app.presentation.components.ClearLogsDrawer
-import com.geminiflow.app.presentation.components.DragDropTrashContainer
-import com.geminiflow.app.presentation.components.FloatingTrashButton
-import com.geminiflow.app.presentation.components.ImmersiveScaffold
+import com.geminiflow.app.presentation.components.GenericLogViewerScaffold
 import com.geminiflow.app.presentation.components.PremiumConfigHeader
-import com.geminiflow.app.presentation.components.draggableToTrash
-import com.geminiflow.app.presentation.components.rememberDragDropTrashState
-import kotlinx.coroutines.launch
 
-/**
- * 系統通知日誌檢視畫面（完全對齊 LensWise SystemLogViewerScreen 與使用者截圖一）。
- * 支援長按抓起拖曳丟入底部懸浮垃圾桶刪除、全域邊緣滑動返回與點擊清空抽屜。
- */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SystemNotificationLogScreen(
     logManager: NotificationLogManager,
@@ -69,105 +47,31 @@ fun SystemNotificationLogScreen(
     modifier: Modifier = Modifier
 ) {
     val isDark = isSystemInDarkTheme()
-    val scope = rememberCoroutineScope()
     val logs by logManager.logsFlow.collectAsState()
 
-    var showClearDrawer by remember { mutableStateOf(false) }
-    val dragDropState = rememberDragDropTrashState<NotificationLogEntry>()
-
-    if (showClearDrawer) {
-        ClearLogsDrawer(
-            title = "CLEAR SYSTEM LOGS",
-            onConfirm = {
-                scope.launch {
-                    logManager.clearAllLogs()
-                    showClearDrawer = false
-                }
-            },
-            onDismiss = { showClearDrawer = false }
-        )
-    }
-
-    ImmersiveScaffold(modifier = modifier) {
-        DragDropTrashContainer(
-            state = dragDropState,
-            onDropOnTrash = { entry ->
-                scope.launch {
-                    logManager.clearLog(entry.file)
-                }
-            }
-        ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                PremiumConfigHeader(
-                    title = "系統通知日誌",
-                    subtitle = "SYSTEM NOTIFICATION LOG"
-                )
-
-                if (logs.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "目前沒有系統通知日誌。",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = if (isDark) Color.White.copy(alpha = 0.5f) else Color.Black.copy(alpha = 0.4f)
-                        )
-                    }
-                } else {
-                    LazyColumn(
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 120.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                    ) {
-                        items(
-                            items = logs,
-                            key = { it.id }
-                        ) { entry ->
-                            val isBeingDragged = dragDropState.isDragging && dragDropState.activeItem?.id == entry.id
-                            NotificationLogCardContent(
-                                entry = entry,
-                                isDark = isDark,
-                                modifier = Modifier
-                                    .alpha(if (isBeingDragged) 0.3f else 1.0f)
-                                    .draggableToTrash(
-                                        item = entry,
-                                        state = dragDropState,
-                                        feedback = {
-                                            NotificationLogCardContent(
-                                                entry = entry,
-                                                isDark = isDark
-                                            )
-                                        }
-                                    )
-                            )
-                        }
-                    }
-                }
-            }
-
-            // 底部磨砂懸浮垃圾桶 (Floating Trash Can)，支援拖曳丟入刪除
-            FloatingTrashButton(
-                onClick = { showClearDrawer = true },
-                isHovering = dragDropState.isHoveringTrash,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 32.dp)
-                    .onGloballyPositioned { coordinates ->
-                        dragDropState.trashBoundsInWindow = coordinates.boundsInWindow()
-                    }
+    GenericLogViewerScaffold(
+        items = logs,
+        onDeleteSingle = { logManager.clearLog(it.file) },
+        onClearAll = { logManager.clearAllLogs() },
+        clearDrawerTitle = "CLEAR SYSTEM LOGS",
+        emptyMessage = "目前沒有系統通知日誌。",
+        modifier = modifier,
+        header = {
+            PremiumConfigHeader(
+                title = "系統通知日誌",
+                subtitle = "SYSTEM NOTIFICATION LOG"
+            )
+        },
+        itemContent = { entry, isDragging, itemModifier ->
+            NotificationLogCardContent(
+                entry = entry,
+                isDark = isDark,
+                modifier = itemModifier.alpha(if (isDragging) 0.3f else 1.0f)
             )
         }
-    }
+    )
 }
 
-/**
- * 單筆系統通知卡片內容元件，100% 復刻 LensWise SystemLogViewerScreen 卡片視覺。
- */
 @Composable
 private fun NotificationLogCardContent(
     entry: NotificationLogEntry,
@@ -204,7 +108,6 @@ private fun NotificationLogCardContent(
             verticalAlignment = Alignment.Top,
             modifier = Modifier.fillMaxWidth()
         ) {
-            // 左側圓形底色圖示
             Box(
                 modifier = Modifier
                     .size(44.dp)
@@ -222,7 +125,6 @@ private fun NotificationLogCardContent(
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // 右側內容區塊
             Column(modifier = Modifier.weight(1f)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),

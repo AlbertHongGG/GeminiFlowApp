@@ -9,9 +9,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.geminiflow.app.presentation.theme.AppColors
 
-/**
- * 提供統一背景色與狀態列邊距的全螢幕容器元件。
- */
 @Composable
 fun ImmersiveScaffold(
     modifier: Modifier = Modifier,

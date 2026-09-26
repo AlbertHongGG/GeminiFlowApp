@@ -20,33 +20,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.haze
-
 /**
  * 全域通知覆蓋層元件，掛載於最頂層。
- * 包含主要畫面內容的毛玻璃取樣層（haze）以及浮動通知毛玻璃呈現層（hazeChild）。
+ * 負責在應用程式畫面最上層呈現平滑進出的浮動通知卡片 (NotificationToast)。
  */
 @Composable
 fun GlobalNotificationOverlay(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
-    val hazeState = remember { HazeState() }
     val notifications by NotificationController.instance.notifications.collectAsState()
 
     // 採用 LensWise 1:1 easeOutQuart 貝茲曲線 (Cubic 0.25, 1.0, 0.5, 1.0)
     val easeOutQuart = remember { CubicBezierEasing(0.25f, 1.0f, 0.5f, 1.0f) }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // 主要畫面層，作為 Haze 毛玻璃的取樣來源
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .haze(hazeState)
-        ) {
-            content()
-        }
+        // 主要畫面層，直接渲染內容，杜絕全域節點干擾與 Haze 遞迴崩潰
+        content()
 
         // 浮動通知層
         if (notifications.isNotEmpty()) {
@@ -73,8 +63,7 @@ fun GlobalNotificationOverlay(
                             notification = notification,
                             onDismiss = {
                                 NotificationController.instance.remove(notification.id)
-                            },
-                            hazeState = hazeState
+                            }
                         )
                     }
                 }

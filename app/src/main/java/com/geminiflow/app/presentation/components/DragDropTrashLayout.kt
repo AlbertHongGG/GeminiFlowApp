@@ -31,10 +31,6 @@ import kotlin.math.roundToInt
 
 private const val TAG = "DragDropTrash"
 
-/**
- * 長按拖曳丟入垃圾桶刪除之全域狀態管理。
- * 100% 復刻 LensWise 的 LongPressDraggable 與 DragTarget 機制。
- */
 class DragDropTrashState<T> {
     var isDragging by mutableStateOf(false)
     var activeItem by mutableStateOf<T?>(null)
@@ -53,9 +49,6 @@ fun <T> rememberDragDropTrashState(): DragDropTrashState<T> {
     return remember { DragDropTrashState() }
 }
 
-/**
- * 拖曳刪除外層容器，負責捕捉全域邊界座標並渲染懸浮跟隨手勢的 Feedback 卡片。
- */
 @Composable
 fun <T> DragDropTrashContainer(
     state: DragDropTrashState<T>,

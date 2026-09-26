@@ -27,27 +27,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.geminiflow.app.domain.model.AppNotification
 import com.geminiflow.app.domain.model.NotificationType
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeChild
 
 /**
  * 全域浮動通知卡片元件。
- * 1:1 移植 LensWise 設計：真毛玻璃背景模糊 (sigma=12dp, 70%白)、超細微黑邊框 (alpha=0.05)、
- * 柔和投射陰影 (alpha=0.10, blur=20dp) 與精緻 Typography。
+ * 採簡潔精緻的多層卡片設計，支援深淺色主題自適應，零外部繪製依賴。
  */
 @Composable
 fun NotificationToast(
     notification: AppNotification,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
-    hazeState: HazeState? = null
+    modifier: Modifier = Modifier
 ) {
+    val isDark = isSystemInDarkTheme()
     val (typeColor, typeIcon) = when (notification.type) {
         NotificationType.SUCCESS -> Pair(Color(0xFF10B981), Icons.Outlined.CheckCircleOutline)
         NotificationType.ERROR -> Pair(Color(0xFFEF4444), Icons.Outlined.ErrorOutline)
@@ -64,23 +62,14 @@ fun NotificationToast(
             .shadow(
                 elevation = 8.dp,
                 shape = shape,
-                ambientColor = Color.Black.copy(alpha = 0.08f),
-                spotColor = Color.Black.copy(alpha = 0.12f)
+                ambientColor = if (isDark) Color.Black.copy(alpha = 0.30f) else Color.Black.copy(alpha = 0.08f),
+                spotColor = if (isDark) Color.Black.copy(alpha = 0.45f) else Color.Black.copy(alpha = 0.12f)
             )
             .clip(shape)
-            .then(
-                if (hazeState != null) {
-                    Modifier.hazeChild(state = hazeState) {
-                        blurRadius = 12.dp
-                        backgroundColor = Color.White.copy(alpha = 0.70f)
-                    }
-                } else {
-                    Modifier.background(Color.White.copy(alpha = 0.85f))
-                }
-            )
+            .background(if (isDark) Color(0xFF1E293B).copy(alpha = 0.94f) else Color.White.copy(alpha = 0.94f))
             .border(
                 width = 1.dp,
-                color = Color.Black.copy(alpha = 0.05f),
+                color = if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.06f),
                 shape = shape
             )
             .padding(horizontal = 16.dp, vertical = 14.dp)
@@ -100,7 +89,7 @@ fun NotificationToast(
 
             Text(
                 text = notification.message,
-                color = Color(0xDE000000), // black87
+                color = if (isDark) Color.White.copy(alpha = 0.92f) else Color(0xDE000000),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 0.5.sp,
@@ -123,7 +112,7 @@ fun NotificationToast(
                 Icon(
                     imageVector = Icons.Outlined.Close,
                     contentDescription = "關閉",
-                    tint = Color.Black.copy(alpha = 0.54f), // black54
+                    tint = if (isDark) Color.White.copy(alpha = 0.60f) else Color.Black.copy(alpha = 0.54f),
                     modifier = Modifier.size(20.dp)
                 )
             }

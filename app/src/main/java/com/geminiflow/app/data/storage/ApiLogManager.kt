@@ -16,20 +16,20 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.random.Random
+import com.geminiflow.app.domain.model.DeletableLog
 
-/**
- * API 請求日誌檔案對象模型。
- */
 data class ApiLogModel(
-    val id: String,
-    val file: File,
+    override val id: String,
+    override val file: File,
     val title: String,
     val displayTime: String,
     val durationMs: Long,
     val timestamp: Long,
     val rawJson: String,
     val source: String = "全部"
-)
+) : DeletableLog {
+    override val timestampMillis: Long get() = timestamp
+}
 
 /**
  * API 請求日誌管理器，負責請求與回應日誌的檔案持久化存儲、讀取與清理。

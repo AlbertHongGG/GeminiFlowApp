@@ -16,18 +16,16 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.random.Random
+import com.geminiflow.app.domain.model.DeletableLog
 
-/**
- * 系統通知日誌項目資料結構。
- */
 data class NotificationLogEntry(
-    val id: String,
-    val file: File,
+    override val id: String,
+    override val file: File,
     val type: NotificationType,
     val message: String,
     val timestampStr: String,
-    val timestampMillis: Long
-)
+    override val timestampMillis: Long
+) : DeletableLog
 
 /**
  * 系統通知日誌管理器，負責日誌檔案的持久化寫入、讀取與清理。
