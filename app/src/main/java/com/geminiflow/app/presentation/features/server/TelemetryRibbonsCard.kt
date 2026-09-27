@@ -107,18 +107,7 @@ fun TelemetryRibbonsCard(
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 18.dp)
         ) {
-            // 標籤條
-            Text(
-                text = "即時遙測 TELEMETRY RIBBONS",
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Monospace,
-                color = AzureTheme.textMuted,
-                letterSpacing = 1.2.sp
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
+            
             // 數據列 1：累計處理請求
             RequestsRibbonRow(
                 isRunning = isRunning,

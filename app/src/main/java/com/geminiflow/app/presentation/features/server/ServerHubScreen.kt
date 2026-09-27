@@ -122,6 +122,7 @@ fun ServerHubScreen(
                 isRunning = uiState.isServerRunning,
                 host = uiState.serverHost,
                 port = uiState.serverPort,
+                uptimeFormatted = uiState.uptimeFormatted,
                 errorMessage = uiState.serverErrorMessage,
                 onToggleServer = { viewModel.toggleServer(context) }
             )
