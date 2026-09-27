@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -255,7 +256,15 @@ private fun RenderPrimitiveRow(
     isDark: Boolean
 ) {
     val keyColor = if (isDark) Color(0xFFFDBA74) else Color(0xFFC2410C)
-    val isLongString = data is String && (data.contains("\n") || data.length > 50)
+    val isBlockKey = keyName.contains("prompt", ignoreCase = true) ||
+                     keyName.contains("text", ignoreCase = true) ||
+                     keyName.contains("content", ignoreCase = true)
+
+    val isLongString = data is String && (
+        isBlockKey ||
+        data.contains("\n") ||
+        data.length > 25
+    )
 
     if (isLongString) {
         Column(
@@ -352,22 +361,27 @@ private fun PrimitiveValueText(
                         )
                         .padding(12.dp)
                 ) {
+                    SelectionContainer {
+                        Text(
+                            text = formatted,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp,
+                            lineHeight = 18.sp,
+                            color = if (isDark) Color(0xFFA7F3D0) else Color(0xFF1E40AF)
+                        )
+                    }
+                }
+            } else {
+                SelectionContainer {
                     Text(
-                        text = formatted,
+                        text = "\"$str\"",
                         fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp,
-                        lineHeight = 18.sp,
+                        fontSize = 13.sp,
                         color = if (isDark) Color(0xFFA7F3D0) else Color(0xFF1E40AF)
                     )
                 }
-            } else {
-                Text(
-                    text = "\"$str\"",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 13.sp,
-                    color = if (isDark) Color(0xFFA7F3D0) else Color(0xFF1E40AF)
-                )
             }
+
         }
 
         else -> {

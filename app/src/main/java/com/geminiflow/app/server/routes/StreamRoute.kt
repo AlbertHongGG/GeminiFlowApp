@@ -21,6 +21,7 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.json.JSONArray
 import org.json.JSONObject
 
 fun Route.streamRoute(
@@ -66,10 +67,14 @@ fun Route.streamRoute(
             call.response.header(HttpHeaders.CacheControl, "no-cache")
             call.response.header(HttpHeaders.Connection, "keep-alive")
 
+            val fullResponseText = StringBuilder()
+            val imagesSaved = mutableListOf<String>()
+
             call.respondTextWriter(contentType = ContentType.Text.EventStream) {
                 try {
                     streamChatUseCase(domainRequest).collect { chunk ->
                         if (!chunk.text.isNullOrEmpty()) {
+                            fullResponseText.append(chunk.text)
                             val dataJson = buildJsonObject {
                                 put("chunk", chunk.text)
                             }.toString()
@@ -80,6 +85,7 @@ fun Route.streamRoute(
                         if (chunk.mediaAsset is MediaAsset.LocalReady) {
                             val filename = (chunk.mediaAsset as MediaAsset.LocalReady).localFile.name
                             val url = "$scheme://$currentHost:$currentPort/images/$filename"
+                            imagesSaved.add(url)
                             val dataJson = buildJsonObject {
                                 put("url", url)
                             }.toString()
@@ -91,6 +97,8 @@ fun Route.streamRoute(
                     write("event: done\ndata: {}\n\n")
                     flush()
                     val streamDuration = System.currentTimeMillis() - t0
+                    val fullText = fullResponseText.toString()
+
                     trafficLogManager.record(
                         TrafficLog(
                             method = "POST",
@@ -99,7 +107,7 @@ fun Route.streamRoute(
                             durationMs = streamDuration,
                             clientIp = clientIp,
                             promptSummary = promptSummary,
-                            responseSummary = "SSE Stream Complete"
+                            responseSummary = if (fullText.isNotEmpty()) fullText.take(120) else "SSE Stream Complete"
                         )
                     )
                     val reqJson = JSONObject().apply {
@@ -107,8 +115,13 @@ fun Route.streamRoute(
                         put("prompt", requestDto.prompt)
                         if (!requestDto.systemPrompt.isNullOrEmpty()) put("system_prompt", requestDto.systemPrompt)
                         if (requestDto.sessionId != null) put("session_id", requestDto.sessionId)
+                        if (requestDto.images.isNotEmpty()) put("images_count", requestDto.images.size)
                     }
                     val respJson = JSONObject().apply {
+                        put("text", fullText)
+                        if (imagesSaved.isNotEmpty()) {
+                            put("images", JSONArray(imagesSaved))
+                        }
                         put("status", "SSE Stream Complete")
                     }
                     apiLogManager.logInteraction(
