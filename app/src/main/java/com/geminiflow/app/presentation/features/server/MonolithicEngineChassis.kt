@@ -41,7 +41,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.geminiflow.app.presentation.notification.NotificationController
 import kotlinx.coroutines.delay
 
 /**
@@ -168,7 +167,6 @@ fun MonolithicEngineChassis(
                         .clickable {
                             clipboardManager.setText(AnnotatedString(endpointUrl))
                             isCopied = true
-                            NotificationController.showSuccess("已複製服務端點網址")
                         }
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 )
@@ -178,7 +176,6 @@ fun MonolithicEngineChassis(
                     onClick = {
                         clipboardManager.setText(AnnotatedString(endpointUrl))
                         isCopied = true
-                        NotificationController.showSuccess("已複製服務端點網址")
                     },
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
