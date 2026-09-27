@@ -1,8 +1,7 @@
 package com.geminiflow.app.presentation.features.server
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -47,13 +46,17 @@ import kotlinx.coroutines.delay
 
 /**
  * 一體化核心主座（Monolithic Engine Chassis）
- * 居中承載【動力反應核心主體】為視覺焦點，整合運行狀態與純圖示端點複製卡匣。
+ * 1. 外框維持原先細緻邊框色彩（非藍色）。
+ * 2. 居中承載 98dp 瓷質大按鍵與 184dp 柔焦日冕。
+ * 3. ENGINE 狀態與計時作為主標題（● ENGINE ACTIVE · 00:14:32）。
+ * 4. Server URL 作為副標題置於 ENGINE 字串下方，文字絕對水平置中，無輸入框包覆、無圓點，右側放置複製 icon 按鈕。
  */
 @Composable
 fun MonolithicEngineChassis(
     isRunning: Boolean,
     host: String,
     port: Int,
+    uptimeFormatted: String = "",
     errorMessage: String?,
     onToggleServer: () -> Unit,
     modifier: Modifier = Modifier
@@ -73,7 +76,7 @@ fun MonolithicEngineChassis(
         modifier = modifier
             .fillMaxWidth()
             .shadow(
-                elevation = 6.dp,
+                elevation = 4.dp,
                 shape = RoundedCornerShape(24.dp),
                 spotColor = Color(0x0C0F172A),
                 ambientColor = Color(0x040F172A)
@@ -82,109 +85,123 @@ fun MonolithicEngineChassis(
         color = AzureTheme.cardSurface,
         border = BorderStroke(
             width = 1.2.dp,
-            brush = if (isRunning) AzureTheme.activeGlowBrush else AzureTheme.subtleBorderBrush
+            brush = AzureTheme.subtleBorderBrush
         )
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 24.dp, start = 20.dp, end = 20.dp, bottom = 22.dp),
+                .padding(top = 22.dp, start = 20.dp, end = 20.dp, bottom = 22.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 畫面主角：動力反應核心（Kinetic Reactor Core）
+            // 畫面主角：日冕一體化軌道鐘開關主體
             KineticReactorCore(
                 isRunning = isRunning,
                 onToggle = onToggleServer
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // 狀態大文字（無冗贅副標，純淨有力）
-            Text(
-                text = if (isRunning) "ENGINE OPERATIONAL" else "ENGINE DORMANT",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.ExtraBold,
-                fontFamily = FontFamily.Monospace,
-                color = if (isRunning) AzureTheme.azureDeep else AzureTheme.textDim,
-                letterSpacing = 0.8.sp
-            )
+            // 主標題：單行透氣狀態與計時展示（● ENGINE ACTIVE · 00:14:32）
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                // 發光狀態指示微圓點
+                Box(
+                    modifier = Modifier
+                        .size(7.dp)
+                        .clip(CircleShape)
+                        .background(if (isRunning) Color(0xFF2563EB) else Color(0xFF94A3B8))
+                )
 
-            Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.width(9.dp))
 
-            // 內嵌式端點卡匣（純圖示按鈕，無多餘文字）
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = AzureTheme.slotBackgroundSubtle,
-                border = BorderStroke(
-                    width = 1.dp,
-                    color = if (isCopied) AzureTheme.azureBorder else AzureTheme.borderSubtle
-                ),
+                // 狀態文字
+                Text(
+                    text = if (isRunning) "ENGINE ACTIVE" else "ENGINE STANDBY",
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isRunning) Color(0xFF0F172A) else Color(0xFF64748B),
+                    letterSpacing = 1.0.sp
+                )
+
+                // 運轉時，銜接分隔點與計時數字
+                if (isRunning && uptimeFormatted.isNotBlank()) {
+                    Text(
+                        text = "  ·  ",
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF94A3B8)
+                    )
+
+                    Text(
+                        text = uptimeFormatted,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF2563EB),
+                        letterSpacing = 0.5.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // 副標題：Server URL（字串絕對置中，複製 icon 置於右側，無輸入框、無圓點）
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable {
-                        clipboardManager.setText(AnnotatedString(endpointUrl))
-                        isCopied = true
-                        NotificationController.showSuccess("已複製服務端點網址")
-                    }
+                    .padding(horizontal = 12.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Row(
-                    modifier = Modifier.padding(start = 14.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(if (isRunning) AzureTheme.azurePrimary else AzureTheme.textDim)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = endpointUrl,
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 13.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = AzureTheme.textHeading,
-                            letterSpacing = 0.3.sp
-                        )
-                    }
-
-                    IconButton(
-                        onClick = {
+                // 水平絕對置中的 URL 字串
+                Text(
+                    text = endpointUrl,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF64748B),
+                    letterSpacing = 0.3.sp,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable {
                             clipboardManager.setText(AnnotatedString(endpointUrl))
                             isCopied = true
                             NotificationController.showSuccess("已複製服務端點網址")
-                        },
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        AnimatedVisibility(
-                            visible = isCopied,
-                            enter = fadeIn(),
-                            exit = fadeOut()
-                        ) {
+                        }
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+
+                // 放置於右側的複製 icon 按鈕
+                IconButton(
+                    onClick = {
+                        clipboardManager.setText(AnnotatedString(endpointUrl))
+                        isCopied = true
+                        NotificationController.showSuccess("已複製服務端點網址")
+                    },
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .size(28.dp)
+                ) {
+                    Crossfade(
+                        targetState = isCopied,
+                        animationSpec = tween(durationMillis = 200),
+                        label = "CopyIconCrossfade"
+                    ) { copied ->
+                        if (copied) {
                             Icon(
                                 imageVector = Icons.Default.Check,
                                 contentDescription = "已複製",
-                                tint = AzureTheme.azurePrimary,
-                                modifier = Modifier.size(16.dp)
+                                tint = Color(0xFF2563EB),
+                                modifier = Modifier.size(15.dp)
                             )
-                        }
-
-                        AnimatedVisibility(
-                            visible = !isCopied,
-                            enter = fadeIn(),
-                            exit = fadeOut()
-                        ) {
+                        } else {
                             Icon(
                                 imageVector = Icons.Default.ContentCopy,
                                 contentDescription = "複製端點",
-                                tint = AzureTheme.textMuted,
-                                modifier = Modifier.size(16.dp)
+                                tint = Color(0xFF94A3B8),
+                                modifier = Modifier.size(15.dp)
                             )
                         }
                     }
