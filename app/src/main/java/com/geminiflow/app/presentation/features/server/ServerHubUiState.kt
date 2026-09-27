@@ -2,21 +2,33 @@ package com.geminiflow.app.presentation.features.server
 
 import com.geminiflow.app.domain.model.log.TrafficFilter
 import com.geminiflow.app.domain.model.log.TrafficLog
+import com.geminiflow.app.domain.model.server.ServerState
 
+/**
+ * 伺服器中心 UI 狀態
+ * 以 serverState: ServerState 為唯一真實來源（SSOT），消滅分散布林變數。
+ */
 data class ServerHubUiState(
-    val isServerRunning: Boolean = false,
+    val serverState: ServerState = ServerState.Stopped,
     val serverHost: String = "127.0.0.1",
     val serverPort: Int = 5000,
-    val serverStartTime: Long? = null,
     val uptimeFormatted: String = "00:00:00",
     val totalRequests: Long = 0,
     val activeConnections: Int = 0,
-    val serverErrorMessage: String? = null,
     val cacheFilesCount: Int = 0,
     val cacheSizeBytes: Long = 0L,
     val trafficLogs: List<TrafficLog> = emptyList(),
     val trafficFilter: TrafficFilter = TrafficFilter.ALL
 ) {
+    val isServerRunning: Boolean
+        get() = serverState.isRunning
+
+    val isServerTransitioning: Boolean
+        get() = serverState.isTransitioning
+
+    val serverErrorMessage: String?
+        get() = (serverState as? ServerState.Failed)?.error
+
     val cacheSizeFormatted: String
         get() = when {
             cacheSizeBytes < 1024 -> "$cacheSizeBytes B"

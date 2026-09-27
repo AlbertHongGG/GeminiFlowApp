@@ -34,51 +34,71 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.geminiflow.app.domain.model.server.ServerState
 
 /**
-
+ * 柔焦大氣日冕環開關主體（Atmospheric Corona Glow Core）
+ * 1. 直接由 serverState: ServerState 強型別驅動，徹底消滅布林盲區。
+ * 2. 狀態精確對應：
+ *    - Starting: 能量凝聚加速呼吸（1200ms），按鍵鎖定。
+ *    - Running: 沉靜大氣深層呼吸（3000ms），光暈漫射。
+ *    - Stopping: 能量平緩收縮（1200ms），按鍵鎖定。
+ *    - Stopped: 乾淨瓷白，無光暈。
+ *    - Failed: 櫻紅故障警示。
  */
 @Composable
 fun KineticReactorCore(
-    isRunning: Boolean,
+    serverState: ServerState,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isRunning = serverState.isRunning
+    val isTransitioning = serverState.isTransitioning
+
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
     val infiniteTransition = rememberInfiniteTransition(label = "CoronaOrbitTransition")
 
-    // 日冕光暈平緩深層呼吸動畫（3.0 秒極其柔和雙向起伏）
+    // 日冕光暈呼吸動畫（過渡時 1200ms，運轉時 3000ms）
+    val pulseDuration = if (isTransitioning) 1200 else 3000
     val pulseProgress by infiniteTransition.animateFloat(
-        initialValue = 0.82f,
+        initialValue = if (isTransitioning) 0.65f else 0.82f,
         targetValue = 1.0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 3000, easing = FastOutSlowInEasing),
+            animation = tween(durationMillis = pulseDuration, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "CoronaBreathPulse"
     )
 
-    // 實體按鍵下壓 Spring 物理彈性縮放（按壓時下沉至 0.94x 後彈性復位）
+    // 實體按鍵下壓 Spring 物理彈性縮放（過渡期間鎖定不可按下）
     val puckScale by animateFloatAsState(
-        targetValue = if (isPressed) 0.94f else 1.0f,
+        targetValue = if (isPressed && !isTransitioning) 0.94f else 1.0f,
         animationSpec = spring(dampingRatio = 0.60f, stiffness = 550f),
         label = "PuckSpringScale"
     )
 
-    // 核心圖示色調過渡
+    // 核心圖示色調過渡：由 ServerState 精準決定
     val emblemColor by animateColorAsState(
-        targetValue = if (isRunning) Color(0xFF2563EB) else Color(0xFF334155),
-        animationSpec = tween(durationMillis = 350),
+        targetValue = when (serverState) {
+            is ServerState.Running -> Color(0xFF2563EB)
+            is ServerState.Starting -> Color(0xFF38BDF8)
+            is ServerState.Stopping -> Color(0xFF60A5FA)
+            is ServerState.Failed -> Color(0xFFE11D48)
+            is ServerState.Stopped -> Color(0xFF334155)
+        },
+        animationSpec = tween(durationMillis = 300),
         label = "EmblemColor"
     )
+
+    val showGlow = isRunning || isTransitioning
 
     Box(
         modifier = modifier.size(180.dp),
         contentAlignment = Alignment.Center
     ) {
-        // 底層畫布：輕盈通透的高階環境微光（剔除深色實體層，以極低不透明度打造真實光學光暈）
+        // 底層畫布：輕盈通透的高階環境微光
         Box(
             modifier = Modifier
                 .size(180.dp)
@@ -87,26 +107,24 @@ fun KineticReactorCore(
                     val height = size.height
                     val center = Offset(width / 2f, height / 2f)
 
-                    // 擴散至外圍的光暈最大半徑（約 88dp ~ 93dp，直徑達 180dp）
                     val maxGlowRadius = 88.dp.toPx() + (5.dp.toPx() * pulseProgress)
 
-                    // 超柔和透光漸層：峰值透明度嚴格控制在 0.30 左右，選用清透亮天藍與湛藍，杜絕濃重深藍與實體感
                     val etherealAuraBrush = Brush.radialGradient(
                         colorStops = arrayOf(
                             0.00f to Color(0xFF3B82F6).copy(alpha = 0.30f * pulseProgress),
                             0.48f to Color(0xFF3B82F6).copy(alpha = 0.28f * pulseProgress),
-                            0.54f to Color(0xFF38BDF8).copy(alpha = 0.26f * pulseProgress), // 緊貼 48dp 圓盤外側的明亮漫射光
+                            0.54f to Color(0xFF38BDF8).copy(alpha = 0.26f * pulseProgress),
                             0.66f to Color(0xFF60A5FA).copy(alpha = 0.16f * pulseProgress),
                             0.78f to Color(0xFF93C5FD).copy(alpha = 0.08f * pulseProgress),
                             0.89f to Color(0xFFBAE6FD).copy(alpha = 0.03f * pulseProgress),
-                            1.00f to Color(0x00BAE6FD) // 終端完全融入純白底色
+                            1.00f to Color(0x00BAE6FD)
                         ),
                         center = center,
                         radius = maxGlowRadius
                     )
 
                     onDrawBehind {
-                        if (isRunning) {
+                        if (showGlow) {
                             drawCircle(
                                 brush = etherealAuraBrush,
                                 radius = maxGlowRadius,
@@ -117,19 +135,20 @@ fun KineticReactorCore(
                 }
         )
 
-        // 上層：96dp 純白陶瓷實體圓盤按鈕（柔和自然微陰影，不產生重色陰影圈）
+        // 上層：96dp 純白陶瓷實體圓盤按鈕（過渡中自動禁用點擊防抖）
         Surface(
             modifier = Modifier
                 .size(96.dp)
                 .scale(puckScale)
                 .shadow(
-                    elevation = if (isPressed) 2.dp else 4.dp,
+                    elevation = if (isPressed && !isTransitioning) 2.dp else 4.dp,
                     shape = CircleShape,
                     spotColor = Color(0x120F172A),
                     ambientColor = Color(0x060F172A)
                 )
                 .clip(CircleShape)
                 .clickable(
+                    enabled = !isTransitioning,
                     interactionSource = interactionSource,
                     indication = null,
                     onClick = onToggle
@@ -138,7 +157,12 @@ fun KineticReactorCore(
             color = Color.White,
             border = BorderStroke(
                 width = 1.2.dp,
-                color = if (isRunning) Color(0xFFE2E8F0) else Color(0xFFF1F5F9)
+                color = when (serverState) {
+                    is ServerState.Running -> Color(0xFFBFDBFE)
+                    is ServerState.Starting, is ServerState.Stopping -> Color(0xFFBAE6FD)
+                    is ServerState.Failed -> Color(0xFFFECDD3)
+                    is ServerState.Stopped -> Color(0xFFF1F5F9)
+                }
             )
         ) {
             Box(
@@ -154,7 +178,6 @@ fun KineticReactorCore(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                // 核心電源微標（36dp 高清晰無襯線圖示，置於純白瓷面中央）
                 Icon(
                     imageVector = Icons.Default.PowerSettingsNew,
                     contentDescription = if (isRunning) "停止本地服務" else "啟動本地伺服器",

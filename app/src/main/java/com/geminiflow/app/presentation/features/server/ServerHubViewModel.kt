@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.geminiflow.app.GeminiFlowApplication
 import com.geminiflow.app.domain.model.log.TrafficFilter
+import com.geminiflow.app.domain.model.server.ServerState
 import com.geminiflow.app.presentation.notification.NotificationController
 import com.geminiflow.app.service.GeminiForegroundService
 import kotlinx.coroutines.Job
@@ -19,10 +20,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+/**
+ * 伺服器中心 ViewModel（ServerHubViewModel）
+ * 完全對接 ServerManager 領域服務，支援非同步 IO 調度與五態狀態機。
+ */
 class ServerHubViewModel(application: Application) : AndroidViewModel(application) {
 
     private val app = application as GeminiFlowApplication
-    private val ktorServer = app.ktorServer
+    private val serverManager = app.serverManager
     private val trafficLogManager = app.trafficLogManager
     private val imageRepository = app.imageRepository
     private val authRepository = app.authRepository
@@ -34,7 +39,7 @@ class ServerHubViewModel(application: Application) : AndroidViewModel(applicatio
 
     init {
         loadConfig()
-        observeServerStatus()
+        observeServerState()
         observeTrafficLogs()
         observeCacheEvents()
         refreshCacheStats()
@@ -53,24 +58,22 @@ class ServerHubViewModel(application: Application) : AndroidViewModel(applicatio
         _uiState.update { it.copy(serverHost = host, serverPort = port) }
     }
 
-    private fun observeServerStatus() {
+    private fun observeServerState() {
         viewModelScope.launch {
-            ktorServer.status.collect { status ->
+            serverManager.state.collect { state ->
                 _uiState.update {
                     it.copy(
-                        isServerRunning = status.isRunning,
-                        serverHost = status.host,
-                        serverPort = status.port,
-                        serverStartTime = status.startTime,
-                        totalRequests = status.totalRequests,
-                        activeConnections = status.activeConnections,
-                        serverErrorMessage = status.errorMessage
+                        serverState = state,
+                        serverHost = state.host,
+                        serverPort = state.port,
+                        totalRequests = (state as? ServerState.Running)?.totalRequests ?: it.totalRequests,
+                        activeConnections = (state as? ServerState.Running)?.activeConnections ?: 0
                     )
                 }
 
-                if (status.isRunning && status.startTime != null) {
-                    startUptimeTicker(status.startTime)
-                } else {
+                if (state is ServerState.Running) {
+                    startUptimeTicker(state.startTime)
+                } else if (state is ServerState.Stopped || state is ServerState.Failed) {
                     stopUptimeTicker()
                 }
             }
@@ -111,20 +114,34 @@ class ServerHubViewModel(application: Application) : AndroidViewModel(applicatio
         _uiState.update { it.copy(cacheFilesCount = count, cacheSizeBytes = bytes) }
     }
 
-    fun toggleServer(context: Context) {
-        val currentState = _uiState.value
-        if (currentState.isServerRunning) {
-            GeminiForegroundService.stopService(context)
-        } else {
-            if (!authRepository.isAuthenticated.value) {
-                NotificationController.showWarning("尚未登入 Google 憑證，請至設定完成授權")
-                return
+    fun toggleServer() {
+        val currentState = _uiState.value.serverState
+
+        // 防連點機制：若伺服器正處於過渡中（Starting 或 Stopping），忽略本次點擊
+        if (currentState.isTransitioning) {
+            return
+        }
+
+        viewModelScope.launch {
+            if (currentState.isRunning) {
+                // 停止服務：委託 ServerManager 非同步停止引擎，前台服務感知 Stopped 狀態後自動終止
+                serverManager.stopServer()
+            } else {
+                if (!authRepository.isAuthenticated.value) {
+                    NotificationController.showWarning("尚未登入 Google 憑證，請至設定完成授權")
+                    return@launch
+                }
+                // 啟動服務：喚醒前台保活服務並由 ServerManager 非同步啟動引擎
+                GeminiForegroundService.startService(
+                    app,
+                    currentState.host,
+                    currentState.port
+                )
+                serverManager.startServer(
+                    currentState.host,
+                    currentState.port
+                )
             }
-            GeminiForegroundService.startService(
-                context,
-                currentState.serverHost,
-                currentState.serverPort
-            )
         }
     }
 

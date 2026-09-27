@@ -25,7 +25,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,7 +43,6 @@ fun ServerHubScreen(
     onNavigateToSandbox: () -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
-    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
 
     ImmersiveScaffold {
@@ -115,12 +113,9 @@ fun ServerHubScreen(
 
             // 一體化核心主座（以動力反應核心為視覺主角）
             MonolithicEngineChassis(
-                isRunning = uiState.isServerRunning,
-                host = uiState.serverHost,
-                port = uiState.serverPort,
+                serverState = uiState.serverState,
                 uptimeFormatted = uiState.uptimeFormatted,
-                errorMessage = uiState.serverErrorMessage,
-                onToggleServer = { viewModel.toggleServer(context) }
+                onToggleServer = { viewModel.toggleServer() }
             )
 
             Spacer(modifier = Modifier.height(18.dp))

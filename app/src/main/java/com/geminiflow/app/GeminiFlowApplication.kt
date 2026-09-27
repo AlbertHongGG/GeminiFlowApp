@@ -24,7 +24,8 @@ import com.geminiflow.app.domain.repository.SessionRepository
 import com.geminiflow.app.domain.usecase.EnsureAuthUseCase
 import com.geminiflow.app.domain.usecase.StreamChatUseCase
 import com.geminiflow.app.presentation.notification.NotificationController
-import com.geminiflow.app.server.KtorLocalServer
+import com.geminiflow.app.domain.server.ServerManager
+import com.geminiflow.app.server.KtorServerManager
 import com.geminiflow.app.service.BatteryOptimizationHelper
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
@@ -63,7 +64,7 @@ class GeminiFlowApplication : Application() {
         private set
     lateinit var notificationController: NotificationController
         private set
-    lateinit var ktorServer: KtorLocalServer
+    lateinit var serverManager: ServerManager
         private set
     lateinit var batteryOptimizationHelper: BatteryOptimizationHelper
         private set
@@ -108,7 +109,7 @@ class GeminiFlowApplication : Application() {
             imageRepository = imageRepository
         )
 
-        ktorServer = KtorLocalServer(
+        serverManager = KtorServerManager(
             streamChatUseCase = streamChatUseCase,
             imageRepository = imageRepository,
             trafficLogManager = trafficLogManager,

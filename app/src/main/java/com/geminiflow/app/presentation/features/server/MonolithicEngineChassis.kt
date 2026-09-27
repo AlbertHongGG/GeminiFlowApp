@@ -1,6 +1,7 @@
 package com.geminiflow.app.presentation.features.server
 
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -41,26 +42,23 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.geminiflow.app.domain.model.server.ServerState
 import kotlinx.coroutines.delay
 
 /**
  * 一體化核心主座（Monolithic Engine Chassis）
- * 1. 外框維持原先細緻邊框色彩（非藍色）。
- * 2. 居中承載 98dp 瓷質大按鍵與 184dp 柔焦日冕。
- * 3. ENGINE 狀態與計時作為主標題（● ENGINE ACTIVE · 00:14:32）。
- * 4. Server URL 作為副標題置於 ENGINE 字串下方，文字絕對水平置中，無輸入框包覆、無圓點，右側放置複製 icon 按鈕。
+ * 1. 嚴格以 serverState: ServerState 強型別驅動，徹底消滅布林盲區。
+ * 2. 狀態文字與指示燈使用編譯期強型別 Exhaustive Pattern Matching，絕不發生 Stopping/Starting 倒置。
+ * 3. Server URL 絕對水平置中，無輸入框、無圓點，右側配置複製按鈕。
  */
 @Composable
 fun MonolithicEngineChassis(
-    isRunning: Boolean,
-    host: String,
-    port: Int,
+    serverState: ServerState,
     uptimeFormatted: String = "",
-    errorMessage: String?,
     onToggleServer: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val endpointUrl = "http://$host:$port"
+    val endpointUrl = "http://${serverState.host}:${serverState.port}"
     val clipboardManager = LocalClipboardManager.current
     var isCopied by remember { mutableStateOf(false) }
 
@@ -70,6 +68,27 @@ fun MonolithicEngineChassis(
             isCopied = false
         }
     }
+
+    // 狀態文字：由 Sealed Interface 精確映射
+    val statusText = when (serverState) {
+        is ServerState.Starting -> "ENGINE STARTING"
+        is ServerState.Running -> "ENGINE ACTIVE"
+        is ServerState.Stopping -> "ENGINE STOPPING"
+        is ServerState.Stopped -> "ENGINE STANDBY"
+        is ServerState.Failed -> "ENGINE FAILED"
+    }
+
+    // 指示微燈色調：由 Sealed Interface 精確映射
+    val dotColor by animateColorAsState(
+        targetValue = when (serverState) {
+            is ServerState.Running -> Color(0xFF2563EB)
+            is ServerState.Starting, is ServerState.Stopping -> Color(0xFF38BDF8)
+            is ServerState.Failed -> Color(0xFFE11D48)
+            is ServerState.Stopped -> Color(0xFF94A3B8)
+        },
+        animationSpec = tween(durationMillis = 250),
+        label = "DotColor"
+    )
 
     Surface(
         modifier = modifier
@@ -95,13 +114,13 @@ fun MonolithicEngineChassis(
         ) {
             // 畫面主角：日冕一體化軌道鐘開關主體
             KineticReactorCore(
-                isRunning = isRunning,
+                serverState = serverState,
                 onToggle = onToggleServer
             )
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // 主標題：單行透氣狀態與計時展示（● ENGINE ACTIVE · 00:14:32）
+            // 主標題：單行透氣狀態與計時展示
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
@@ -111,22 +130,26 @@ fun MonolithicEngineChassis(
                     modifier = Modifier
                         .size(7.dp)
                         .clip(CircleShape)
-                        .background(if (isRunning) Color(0xFF2563EB) else Color(0xFF94A3B8))
+                        .background(dotColor)
                 )
 
                 Spacer(modifier = Modifier.width(9.dp))
 
                 // 狀態文字
                 Text(
-                    text = if (isRunning) "ENGINE ACTIVE" else "ENGINE STANDBY",
+                    text = statusText,
                     fontSize = 13.5.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (isRunning) Color(0xFF0F172A) else Color(0xFF64748B),
+                    color = when (serverState) {
+                        is ServerState.Stopped -> Color(0xFF64748B)
+                        is ServerState.Failed -> Color(0xFFE11D48)
+                        else -> Color(0xFF0F172A)
+                    },
                     letterSpacing = 1.0.sp
                 )
 
                 // 運轉時，銜接分隔點與計時數字
-                if (isRunning && uptimeFormatted.isNotBlank()) {
+                if (serverState is ServerState.Running && uptimeFormatted.isNotBlank()) {
                     Text(
                         text = "  ·  ",
                         fontSize = 13.5.sp,
@@ -154,7 +177,6 @@ fun MonolithicEngineChassis(
                     .padding(horizontal = 12.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // 水平絕對置中的 URL 字串
                 Text(
                     text = endpointUrl,
                     fontFamily = FontFamily.Monospace,
@@ -171,7 +193,6 @@ fun MonolithicEngineChassis(
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 )
 
-                // 放置於右側的複製 icon 按鈕
                 IconButton(
                     onClick = {
                         clipboardManager.setText(AnnotatedString(endpointUrl))
@@ -206,6 +227,7 @@ fun MonolithicEngineChassis(
             }
 
             // 系統異常提示條
+            val errorMessage = (serverState as? ServerState.Failed)?.error
             if (!errorMessage.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(10.dp))
                 Surface(

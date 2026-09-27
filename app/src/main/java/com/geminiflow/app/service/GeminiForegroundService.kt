@@ -1,6 +1,7 @@
 package com.geminiflow.app.service
 
 import android.app.Notification
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
@@ -14,7 +15,20 @@ import androidx.core.app.NotificationCompat
 import com.geminiflow.app.GeminiFlowApplication
 import com.geminiflow.app.MainActivity
 import com.geminiflow.app.R
+import com.geminiflow.app.domain.model.server.ServerState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
+/**
+ * 響應式本地伺服器前台保活守護進程（Reactive Server Foreground Daemon）
+ * 職責純化：
+ * 1. 僅負責 Android 前台通知與 WakeLock 保活，不介入伺服器的阻塞啟停。
+ * 2. 主執行緒 0ms 負擔：所有操作皆由協程非同步調度至 Dispatchers.IO。
+ * 3. 響應式監聽 ServerManager.state：當伺服器停止或異常時自動卸載通知與自我銷毀。
+ */
 class GeminiForegroundService : Service() {
 
     companion object {
@@ -48,6 +62,7 @@ class GeminiForegroundService : Service() {
         }
     }
 
+    private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var wakeLock: PowerManager.WakeLock? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -55,22 +70,25 @@ class GeminiForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         acquireWakeLock()
+        observeServerState()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action ?: ACTION_START
+        val app = application as GeminiFlowApplication
 
         if (action == ACTION_STOP) {
-            Log.i(TAG, "Received ACTION_STOP. Stopping server and service...")
-            stopServer()
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf()
+            Log.i(TAG, "Received ACTION_STOP. Delegating stop to ServerManager on Dispatchers.IO...")
+            serviceScope.launch(Dispatchers.IO) {
+                app.serverManager.stopServer()
+            }
             return START_NOT_STICKY
         }
 
         val host = intent?.getStringExtra(EXTRA_HOST) ?: "127.0.0.1"
         val port = intent?.getIntExtra(EXTRA_PORT, 5000) ?: 5000
 
+        // 立即展示前台通知（符合 Android 8.0+ 規範，避免 ANR）
         val notification = buildNotification(host, port)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
@@ -82,25 +100,30 @@ class GeminiForegroundService : Service() {
             startForeground(NOTIFICATION_ID, notification)
         }
 
-        startServer(host, port)
-
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
-    private fun startServer(host: String, port: Int) {
+    private fun observeServerState() {
         val app = application as GeminiFlowApplication
-        if (!app.ktorServer.isRunning) {
-            try {
-                app.ktorServer.start(host, port)
-            } catch (e: Exception) {
-                Log.e(TAG, "Error starting server from service: ${e.message}", e)
+        serviceScope.launch {
+            app.serverManager.state.collect { state ->
+                when (state) {
+                    is ServerState.Stopped, is ServerState.Failed -> {
+                        Log.i(TAG, "ServerState is $state. Tearing down foreground notification and stopping service.")
+                        stopForeground(STOP_FOREGROUND_REMOVE)
+                        stopSelf()
+                    }
+                    is ServerState.Running -> {
+                        val notification = buildNotification(state.host, state.port)
+                        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                        manager.notify(NOTIFICATION_ID, notification)
+                    }
+                    is ServerState.Starting, is ServerState.Stopping -> {
+                        // 過渡期間維持當前前台狀態
+                    }
+                }
             }
         }
-    }
-
-    private fun stopServer() {
-        val app = application as GeminiFlowApplication
-        app.ktorServer.stop()
     }
 
     private fun buildNotification(host: String, port: Int): Notification {
@@ -148,7 +171,7 @@ class GeminiForegroundService : Service() {
             "GeminiFlowApp:ServerWakeLock"
         ).apply {
             setReferenceCounted(false)
-            acquire(24 * 60 * 60 * 1000L) // 24 hours max
+            acquire(24 * 60 * 60 * 1000L)
         }
     }
 
@@ -162,9 +185,9 @@ class GeminiForegroundService : Service() {
     }
 
     override fun onDestroy() {
-        stopServer()
-        releaseWakeLock()
         super.onDestroy()
-        Log.i(TAG, "GeminiForegroundService destroyed.")
+        releaseWakeLock()
+        serviceScope.cancel()
+        Log.i(TAG, "GeminiForegroundService destroyed cleanly.")
     }
 }
