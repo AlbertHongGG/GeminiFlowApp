@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.geminiflow.app.domain.model.server.ServerState
+import com.geminiflow.app.presentation.features.server.aurora.AuroraPortalCore
 import kotlinx.coroutines.delay
 
 /**
@@ -112,8 +113,8 @@ fun MonolithicEngineChassis(
                 .padding(top = 22.dp, start = 20.dp, end = 20.dp, bottom = 22.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 畫面主角：日冕一體化軌道鐘開關主體
-            KineticReactorCore(
+            // 畫面主角：極光星雲門戶開關主體（還原 GitChecker 雙層反向星雲與雙軌道粒子系統）
+            AuroraPortalCore(
                 serverState = serverState,
                 onToggle = onToggleServer
             )
