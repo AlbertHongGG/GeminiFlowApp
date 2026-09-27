@@ -113,7 +113,7 @@ object AuroraVisualSpecDefaults {
         return when (serverState) {
             is ServerState.Stopped -> AuroraStateProfile(
                 targetScale = 1.0f,
-                targetOpacity = 0.18f,
+                targetOpacity = 0.14f,
                 orbitOpacity = 0.10f,
                 speedMultiplier = 0.6f,
                 isPulsing = false,
@@ -122,39 +122,39 @@ object AuroraVisualSpecDefaults {
                 pulseMaxScale = 1.0f
             )
             is ServerState.Starting -> AuroraStateProfile(
-                targetScale = 1.15f,
-                targetOpacity = 0.70f,
-                orbitOpacity = 0.65f,
-                speedMultiplier = 2.0f,
+                targetScale = 1.10f,
+                targetOpacity = 0.45f,
+                orbitOpacity = 0.45f,
+                speedMultiplier = 1.8f,
                 isPulsing = true,
-                pulseDurationMs = 1200,
-                pulseMinScale = 1.05f,
-                pulseMaxScale = 1.18f
+                pulseDurationMs = 1400,
+                pulseMinScale = 1.03f,
+                pulseMaxScale = 1.12f
             )
             is ServerState.Running -> AuroraStateProfile(
-                targetScale = 1.08f,
-                targetOpacity = 0.55f,
-                orbitOpacity = 0.50f,
+                targetScale = 1.05f,
+                targetOpacity = 0.35f,
+                orbitOpacity = 0.35f,
                 speedMultiplier = 1.0f,
                 isPulsing = true,
-                pulseDurationMs = 3000,
-                pulseMinScale = 1.02f,
-                pulseMaxScale = 1.10f
+                pulseDurationMs = 3200,
+                pulseMinScale = 1.01f,
+                pulseMaxScale = 1.06f
             )
             is ServerState.Stopping -> AuroraStateProfile(
                 targetScale = 1.0f,
-                targetOpacity = 0.40f,
-                orbitOpacity = 0.30f,
-                speedMultiplier = 1.5f,
+                targetOpacity = 0.25f,
+                orbitOpacity = 0.20f,
+                speedMultiplier = 1.3f,
                 isPulsing = true,
-                pulseDurationMs = 1200,
+                pulseDurationMs = 1400,
                 pulseMinScale = 0.98f,
-                pulseMaxScale = 1.06f
+                pulseMaxScale = 1.03f
             )
             is ServerState.Failed -> AuroraStateProfile(
                 targetScale = 1.0f,
-                targetOpacity = 0.45f,
-                orbitOpacity = 0.40f,
+                targetOpacity = 0.35f,
+                orbitOpacity = 0.30f,
                 speedMultiplier = 0.8f,
                 isPulsing = true,
                 pulseDurationMs = 1500,

@@ -62,20 +62,20 @@ fun AuroraNebulaLayer(
         FloatArray(count) { i -> i.toFloat() / (count - 1).toFloat() }
     }
 
-    // 完美高斯衰減權重（Gaussian Decay Mask）：中心純透光，邊界 100% 歸零
+    // 輕盈柔和的大氣高斯衰減（Airy Gaussian Decay Mask）：降低核心濃度，消除過度飽和實體感
     val radialMaskColors = remember {
         intArrayOf(
-            android.graphics.Color.argb(255, 255, 255, 255),
-            android.graphics.Color.argb(255, 255, 255, 255),
-            android.graphics.Color.argb(230, 255, 255, 255),
-            android.graphics.Color.argb(160, 255, 255, 255),
-            android.graphics.Color.argb(80, 255, 255, 255),
+            android.graphics.Color.argb(165, 255, 255, 255),
+            android.graphics.Color.argb(150, 255, 255, 255),
+            android.graphics.Color.argb(110, 255, 255, 255),
+            android.graphics.Color.argb(65, 255, 255, 255),
             android.graphics.Color.argb(25, 255, 255, 255),
+            android.graphics.Color.argb(6, 255, 255, 255),
             android.graphics.Color.argb(0, 255, 255, 255)
         )
     }
     val radialMaskPositions = remember {
-        floatArrayOf(0.0f, 0.20f, 0.40f, 0.60f, 0.78f, 0.90f, 1.0f)
+        floatArrayOf(0.0f, 0.25f, 0.45f, 0.65f, 0.82f, 0.94f, 1.0f)
     }
 
     val infiniteTransition = rememberInfiniteTransition(label = "NebulaPulseTransition")
@@ -183,7 +183,7 @@ fun AuroraNebulaLayer(
                         secondaryRadial,
                         PorterDuff.Mode.DST_IN
                     )
-                    secondaryPaint.alpha = (animatedOpacity * 0.75f * 255f).toInt().coerceIn(0, 255)
+                    secondaryPaint.alpha = (animatedOpacity * 0.50f * 255f).toInt().coerceIn(0, 255)
 
                     native.drawCircle(center.x, center.y, secondaryRadiusPx, secondaryPaint)
                 }
