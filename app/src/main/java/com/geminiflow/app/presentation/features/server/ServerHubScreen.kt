@@ -87,9 +87,7 @@ fun ServerHubScreen(
                 ) {
                     IconButton(
                         onClick = onNavigateToSandbox,
-                        modifier = Modifier
-                            .size(38.dp)
-                            .background(Color(0xFFF1F5F9), CircleShape)
+                        modifier = Modifier.size(38.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Terminal,
@@ -101,9 +99,7 @@ fun ServerHubScreen(
 
                     IconButton(
                         onClick = onNavigateToSettings,
-                        modifier = Modifier
-                            .size(38.dp)
-                            .background(Color(0xFFF1F5F9), CircleShape)
+                        modifier = Modifier.size(38.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Tune,

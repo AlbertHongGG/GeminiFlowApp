@@ -36,9 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 /**
- * 方案一：日冕一體化軌道鐘開關主體（Corona Orbit Switch Entity）
- * 擁有直徑 98dp 的高質感實體觸感陶瓷圓盤按鈕，背後環繞直徑達 184dp 的大氣層柔焦日冕湛藍光暈。
- * 徹底拋棄齒輪刻度與外圍小點，營造純淨無邊界的輕量美學。
+
  */
 @Composable
 fun KineticReactorCore(
@@ -51,12 +49,12 @@ fun KineticReactorCore(
 
     val infiniteTransition = rememberInfiniteTransition(label = "CoronaOrbitTransition")
 
-    // 日冕光暈柔和呼吸膨脹動畫（2.4 秒平緩雙向）
+    // 日冕光暈平緩深層呼吸動畫（3.0 秒極其柔和雙向起伏）
     val pulseProgress by infiniteTransition.animateFloat(
-        initialValue = 0.72f,
+        initialValue = 0.82f,
         targetValue = 1.0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2400, easing = FastOutSlowInEasing),
+            animation = tween(durationMillis = 3000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "CoronaBreathPulse"
@@ -65,7 +63,7 @@ fun KineticReactorCore(
     // 實體按鍵下壓 Spring 物理彈性縮放（按壓時下沉至 0.94x 後彈性復位）
     val puckScale by animateFloatAsState(
         targetValue = if (isPressed) 0.94f else 1.0f,
-        animationSpec = spring(dampingRatio = 0.58f, stiffness = 550f),
+        animationSpec = spring(dampingRatio = 0.60f, stiffness = 550f),
         label = "PuckSpringScale"
     )
 
@@ -77,59 +75,41 @@ fun KineticReactorCore(
     )
 
     Box(
-        modifier = modifier.size(184.dp),
+        modifier = modifier.size(180.dp),
         contentAlignment = Alignment.Center
     ) {
-        // 底層畫布：184dp 寬幅超柔焦大氣日冕光暈（Multi-pass Radial Aura）
+        // 底層畫布：輕盈通透的高階環境微光（剔除深色實體層，以極低不透明度打造真實光學光暈）
         Box(
             modifier = Modifier
-                .size(184.dp)
+                .size(180.dp)
                 .drawWithCache {
                     val width = size.width
                     val height = size.height
                     val center = Offset(width / 2f, height / 2f)
 
-                    // 外圍大氣光暈半徑（隨呼吸在 86dp ~ 94dp 間平緩起伏，直徑達 180dp+）
-                    val outerRadius = 86.dp.toPx() + (8.dp.toPx() * pulseProgress)
-                    val innerRimRadius = 66.dp.toPx()
+                    // 擴散至外圍的光暈最大半徑（約 88dp ~ 93dp，直徑達 180dp）
+                    val maxGlowRadius = 88.dp.toPx() + (5.dp.toPx() * pulseProgress)
 
-                    // 第一層：廣域大氣擴散光暈（從底盤延伸至最外側）
-                    val outerGlowBrush = Brush.radialGradient(
+                    // 超柔和透光漸層：峰值透明度嚴格控制在 0.30 左右，選用清透亮天藍與湛藍，杜絕濃重深藍與實體感
+                    val etherealAuraBrush = Brush.radialGradient(
                         colorStops = arrayOf(
-                            0.0f to Color(0xFF2563EB).copy(alpha = 0.85f * pulseProgress),
-                            0.45f to Color(0xFF2563EB).copy(alpha = 0.72f * pulseProgress),
-                            0.54f to Color(0xFF3B82F6).copy(alpha = 0.55f * pulseProgress),
-                            0.70f to Color(0xFF60A5FA).copy(alpha = 0.32f * pulseProgress),
-                            0.86f to Color(0xFF93C5FD).copy(alpha = 0.12f * pulseProgress),
-                            1.0f to Color.Transparent
+                            0.00f to Color(0xFF3B82F6).copy(alpha = 0.30f * pulseProgress),
+                            0.48f to Color(0xFF3B82F6).copy(alpha = 0.28f * pulseProgress),
+                            0.54f to Color(0xFF38BDF8).copy(alpha = 0.26f * pulseProgress), // 緊貼 48dp 圓盤外側的明亮漫射光
+                            0.66f to Color(0xFF60A5FA).copy(alpha = 0.16f * pulseProgress),
+                            0.78f to Color(0xFF93C5FD).copy(alpha = 0.08f * pulseProgress),
+                            0.89f to Color(0xFFBAE6FD).copy(alpha = 0.03f * pulseProgress),
+                            1.00f to Color(0x00BAE6FD) // 終端完全融入純白底色
                         ),
                         center = center,
-                        radius = outerRadius
-                    )
-
-                    // 第二層：邊緣輝度增強光環（強化瓷白圓盤邊緣的透光立體度）
-                    val rimGlowBrush = Brush.radialGradient(
-                        colorStops = arrayOf(
-                            0.0f to Color(0xFF3B82F6).copy(alpha = 0.35f * pulseProgress),
-                            0.70f to Color(0xFF3B82F6).copy(alpha = 0.20f * pulseProgress),
-                            1.0f to Color.Transparent
-                        ),
-                        center = center,
-                        radius = innerRimRadius
+                        radius = maxGlowRadius
                     )
 
                     onDrawBehind {
                         if (isRunning) {
-                            // 繪製廣域柔和日冕光暈
                             drawCircle(
-                                brush = outerGlowBrush,
-                                radius = outerRadius,
-                                center = center
-                            )
-                            // 繪製圓盤邊緣輝度光圈
-                            drawCircle(
-                                brush = rimGlowBrush,
-                                radius = innerRimRadius,
+                                brush = etherealAuraBrush,
+                                radius = maxGlowRadius,
                                 center = center
                             )
                         }
@@ -137,16 +117,16 @@ fun KineticReactorCore(
                 }
         )
 
-        // 上層：98dp 大尺度懸浮純白瓷質圓盤按鈕（具備實體 3D 浮空立體感）
+        // 上層：96dp 純白陶瓷實體圓盤按鈕（柔和自然微陰影，不產生重色陰影圈）
         Surface(
             modifier = Modifier
-                .size(98.dp)
+                .size(96.dp)
                 .scale(puckScale)
                 .shadow(
-                    elevation = if (isPressed) 2.dp else if (isRunning) 10.dp else 4.dp,
+                    elevation = if (isPressed) 2.dp else 4.dp,
                     shape = CircleShape,
-                    spotColor = if (isRunning) Color(0x352563EB) else Color(0x180F172A),
-                    ambientColor = Color(0x0C0F172A)
+                    spotColor = Color(0x120F172A),
+                    ambientColor = Color(0x060F172A)
                 )
                 .clip(CircleShape)
                 .clickable(
@@ -158,12 +138,12 @@ fun KineticReactorCore(
             color = Color.White,
             border = BorderStroke(
                 width = 1.2.dp,
-                color = if (isRunning) Color(0xFFBFDBFE) else Color(0xFFE2E8F0)
+                color = if (isRunning) Color(0xFFE2E8F0) else Color(0xFFF1F5F9)
             )
         ) {
             Box(
                 modifier = Modifier
-                    .size(98.dp)
+                    .size(96.dp)
                     .background(
                         brush = Brush.verticalGradient(
                             colors = listOf(
@@ -174,22 +154,12 @@ fun KineticReactorCore(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                // 運轉時按鈕內部微藍柔焦背光
-                if (isRunning) {
-                    Box(
-                        modifier = Modifier
-                            .size(52.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFEFF6FF).copy(alpha = pulseProgress))
-                    )
-                }
-
-                // 核心電源微標（38dp 高清晰無襯線符號）
+                // 核心電源微標（36dp 高清晰無襯線圖示，置於純白瓷面中央）
                 Icon(
                     imageVector = Icons.Default.PowerSettingsNew,
                     contentDescription = if (isRunning) "停止本地服務" else "啟動本地伺服器",
                     tint = emblemColor,
-                    modifier = Modifier.size(38.dp)
+                    modifier = Modifier.size(36.dp)
                 )
             }
         }
