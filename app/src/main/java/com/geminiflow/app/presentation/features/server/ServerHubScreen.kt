@@ -33,6 +33,11 @@ import com.geminiflow.app.presentation.components.ImmersiveScaffold
 import com.geminiflow.app.presentation.components.NavigationBarsSafeSpacer
 import com.geminiflow.app.presentation.theme.AppColors
 
+/**
+ * 主畫面儀表板（Server Hub Screen）
+ * 嚴格保留原版 Header（標題與右上角導航按鈕）。
+ * 底層版面全面重構為【一體式極簡懸浮控制中樞】與【動力反應核心主體】。
+ */
 @Composable
 fun ServerHubScreen(
     viewModel: ServerHubViewModel,
@@ -46,11 +51,13 @@ fun ServerHubScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(AzureTheme.backgroundSnow)
                 .padding(horizontal = 20.dp)
                 .verticalScroll(rememberScrollState())
         ) {
             Spacer(modifier = Modifier.height(24.dp))
 
+            // 原裝 Header 區塊（嚴格 100% 保留，完全不作修改）
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -108,9 +115,10 @@ fun ServerHubScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            EngineCoreVisualizer(
+            // 一體化核心主座（以動力反應核心為視覺主角）
+            MonolithicEngineChassis(
                 isRunning = uiState.isServerRunning,
                 host = uiState.serverHost,
                 port = uiState.serverPort,
@@ -118,22 +126,13 @@ fun ServerHubScreen(
                 onToggleServer = { viewModel.toggleServer(context) }
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
-            Text(
-                text = "即時遙測 TELEMETRY",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF64748B),
-                letterSpacing = 1.2.sp,
-                modifier = Modifier.padding(start = 4.dp, bottom = 10.dp)
-            )
-
-            TelemetryGraphicInstrument(
+            // 水平流體數據軸卡片（徹底取代 2x2 玩具方塊）
+            TelemetryRibbonsCard(
                 isRunning = uiState.isServerRunning,
                 totalRequests = uiState.totalRequests,
                 activeConnections = uiState.activeConnections,
-                uptimeFormatted = uiState.uptimeFormatted,
                 cacheSizeFormatted = uiState.cacheSizeFormatted,
                 cacheFilesCount = uiState.cacheFilesCount
             )
