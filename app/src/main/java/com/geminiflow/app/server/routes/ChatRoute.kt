@@ -19,8 +19,9 @@ import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
-import org.json.JSONArray
-import org.json.JSONObject
+import com.geminiflow.app.domain.model.log.ApiLogRecord
+import com.geminiflow.app.domain.model.log.ApiLogRequest
+import com.geminiflow.app.domain.model.log.ApiLogResponse
 
 fun Route.chatRoute(
     streamChatUseCase: StreamChatUseCase,
@@ -91,22 +92,23 @@ fun Route.chatRoute(
                     responseSummary = fullText.take(120)
                 )
             )
-            val reqJson = JSONObject().apply {
-                put("model", requestDto.model)
-                put("prompt", requestDto.prompt)
-                if (!requestDto.systemPrompt.isNullOrEmpty()) put("system_prompt", requestDto.systemPrompt)
-                if (requestDto.sessionId != null) put("session_id", requestDto.sessionId)
-                if (requestDto.images.isNotEmpty()) put("images_count", requestDto.images.size)
-            }
-            val respJson = JSONObject().apply {
-                put("text", fullText)
-                put("images", JSONArray(imagesSaved))
-            }
             apiLogManager.logInteraction(
-                agentName = "AiChat",
-                durationMs = duration,
-                request = reqJson,
-                response = respJson
+                ApiLogRecord(
+                    timestamp = "",
+                    agentName = "AiChat",
+                    durationMs = duration,
+                    request = ApiLogRequest(
+                        model = requestDto.model,
+                        prompt = requestDto.prompt,
+                        systemPrompt = requestDto.systemPrompt?.takeIf { it.isNotBlank() },
+                        sessionId = requestDto.sessionId?.takeIf { it.isNotBlank() },
+                        images = requestDto.images.takeIf { it.isNotEmpty() }
+                    ),
+                    response = ApiLogResponse(
+                        text = fullText.takeIf { it.isNotBlank() },
+                        images = imagesSaved.takeIf { it.isNotEmpty() }
+                    )
+                )
             )
         } catch (e: AuthenticationRequiredException) {
             call.respond(HttpStatusCode.Unauthorized, ErrorResponseDto(e.message ?: "未授權"))

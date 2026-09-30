@@ -3,6 +3,7 @@ package com.geminiflow.app.data.storage
 import android.content.Context
 import android.util.Log
 import com.geminiflow.app.domain.model.log.ApiLogModel
+import com.geminiflow.app.domain.model.log.ApiLogRecord
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -10,7 +11,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.json.JSONObject
 import java.io.File
 import java.text.SimpleDateFormat
@@ -31,6 +33,13 @@ class ApiLogManager(private val context: Context) {
         if (!exists()) mkdirs()
     }
 
+    private val logJson = Json {
+        prettyPrint = true
+        encodeDefaults = false
+        explicitNulls = false
+        ignoreUnknownKeys = true
+    }
+
     private val scope = CoroutineScope(Dispatchers.IO)
     private val _logsFlow = MutableStateFlow<List<ApiLogModel>>(emptyList())
     val logsFlow: StateFlow<List<ApiLogModel>> = _logsFlow.asStateFlow()
@@ -47,7 +56,11 @@ class ApiLogManager(private val context: Context) {
         prefs.edit().putBoolean(PREF_KEY_LOGGING_ENABLED, enabled).apply()
     }
 
-    fun logInteraction(agentName: String, durationMs: Long, request: Any?, response: Any?) {
+    /**
+     * 強型別 API 互動紀錄寫入
+     * 遵循「零幽靈欄位原則」：未設定之可選屬性在序列化時完全被省略
+     */
+    fun logInteraction(record: ApiLogRecord) {
         if (!isLoggingEnabled()) return
 
         scope.launch {
@@ -56,55 +69,23 @@ class ApiLogManager(private val context: Context) {
                 val yyyyMMdd = SimpleDateFormat("yyyyMMdd", Locale.US).format(now)
                 val hhmmss = SimpleDateFormat("HHmmss", Locale.US).format(now)
                 val random = Random.nextInt(100000, 999999)
-                val safeAgentName = agentName.replace(Regex("[^a-zA-Z0-9_-]"), "_")
+                val safeAgentName = record.agentName.replace(Regex("[^a-zA-Z0-9_-]"), "_")
                 val fileName = "${yyyyMMdd}_${hhmmss}_${safeAgentName}_${random}.json"
                 val file = File(logDir, fileName)
 
-                val isoTimestamp = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSS", Locale.US).format(now)
-                val rootJson = JSONObject().apply {
-                    put("timestamp", isoTimestamp)
-                    put("agentName", agentName)
-                    put("durationMs", durationMs)
-
-                    when (request) {
-                        is JSONObject -> put("request", request)
-                        is JSONArray -> put("request", request)
-                        is String -> {
-                            val parsed = parseJsonQuietly(request)
-                            if (parsed != null) put("request", parsed) else put("request", request)
-                        }
-                        null -> put("request", JSONObject.NULL)
-                        else -> put("request", request.toString())
-                    }
-
-                    when (response) {
-                        is JSONObject -> put("response", response)
-                        is JSONArray -> put("response", response)
-                        is String -> {
-                            val parsed = parseJsonQuietly(response)
-                            if (parsed != null) put("response", parsed) else put("response", response)
-                        }
-                        null -> put("response", JSONObject.NULL)
-                        else -> put("response", response.toString())
-                    }
+                val recordToWrite = if (record.timestamp.isEmpty()) {
+                    val isoTimestamp = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSS", Locale.US).format(now)
+                    record.copy(timestamp = isoTimestamp)
+                } else {
+                    record
                 }
 
-                file.writeText(rootJson.toString(2))
+                val jsonString = logJson.encodeToString(recordToWrite)
+                file.writeText(jsonString)
                 reload()
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to write API log: ${e.message}", e)
             }
-        }
-    }
-
-    private fun parseJsonQuietly(str: String): Any? {
-        val trimmed = str.trim()
-        return try {
-            if (trimmed.startsWith("{")) JSONObject(trimmed)
-            else if (trimmed.startsWith("[")) JSONArray(trimmed)
-            else null
-        } catch (_: Exception) {
-            null
         }
     }
 

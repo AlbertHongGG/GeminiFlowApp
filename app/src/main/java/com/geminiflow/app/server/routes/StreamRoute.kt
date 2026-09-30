@@ -19,10 +19,11 @@ import io.ktor.server.response.respond
 import io.ktor.server.response.respondTextWriter
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
+import com.geminiflow.app.domain.model.log.ApiLogRecord
+import com.geminiflow.app.domain.model.log.ApiLogRequest
+import com.geminiflow.app.domain.model.log.ApiLogResponse
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import org.json.JSONArray
-import org.json.JSONObject
 
 fun Route.streamRoute(
     streamChatUseCase: StreamChatUseCase,
@@ -110,25 +111,23 @@ fun Route.streamRoute(
                             responseSummary = if (fullText.isNotEmpty()) fullText.take(120) else "SSE Stream Complete"
                         )
                     )
-                    val reqJson = JSONObject().apply {
-                        put("model", requestDto.model)
-                        put("prompt", requestDto.prompt)
-                        if (!requestDto.systemPrompt.isNullOrEmpty()) put("system_prompt", requestDto.systemPrompt)
-                        if (requestDto.sessionId != null) put("session_id", requestDto.sessionId)
-                        if (requestDto.images.isNotEmpty()) put("images_count", requestDto.images.size)
-                    }
-                    val respJson = JSONObject().apply {
-                        put("text", fullText)
-                        if (imagesSaved.isNotEmpty()) {
-                            put("images", JSONArray(imagesSaved))
-                        }
-                        put("status", "SSE Stream Complete")
-                    }
                     apiLogManager.logInteraction(
-                        agentName = "AiChat",
-                        durationMs = streamDuration,
-                        request = reqJson,
-                        response = respJson
+                        ApiLogRecord(
+                            timestamp = "",
+                            agentName = "AiChat",
+                            durationMs = streamDuration,
+                            request = ApiLogRequest(
+                                model = requestDto.model,
+                                prompt = requestDto.prompt,
+                                systemPrompt = requestDto.systemPrompt?.takeIf { it.isNotBlank() },
+                                sessionId = requestDto.sessionId?.takeIf { it.isNotBlank() },
+                                images = requestDto.images.takeIf { it.isNotEmpty() }
+                            ),
+                            response = ApiLogResponse(
+                                text = fullText.takeIf { it.isNotBlank() },
+                                images = imagesSaved.takeIf { it.isNotEmpty() }
+                            )
+                        )
                     )
                 } catch (e: AuthenticationRequiredException) {
                     val err = buildJsonObject {

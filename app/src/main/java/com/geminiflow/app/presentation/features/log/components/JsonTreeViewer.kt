@@ -60,14 +60,16 @@ fun JsonTreeViewer(
 
     Column(modifier = modifier.fillMaxWidth()) {
         if (rootName != null) {
-            JsonNodeRenderer(
-                keyName = rootName,
-                data = parsedData,
-                isDark = isDark,
-                isRoot = true
-            )
+            if (isValidDisplayNode(parsedData)) {
+                JsonNodeRenderer(
+                    keyName = rootName,
+                    data = parsedData,
+                    isDark = isDark,
+                    isRoot = true
+                )
+            }
         } else if (parsedData is JSONObject) {
-            val keys = parsedData.keys().asSequence().toList()
+            val keys = parsedData.keys().asSequence().filter { isValidDisplayNode(parsedData.opt(it)) }.toList()
             keys.forEach { key ->
                 JsonNodeRenderer(
                     keyName = key,
@@ -78,14 +80,17 @@ fun JsonTreeViewer(
             }
         } else if (parsedData is JSONArray) {
             for (i in 0 until parsedData.length()) {
-                JsonNodeRenderer(
-                    keyName = "[$i]",
-                    data = parsedData.opt(i),
-                    isDark = isDark,
-                    isRoot = true
-                )
+                val item = parsedData.opt(i)
+                if (isValidDisplayNode(item)) {
+                    JsonNodeRenderer(
+                        keyName = "[$i]",
+                        data = item,
+                        isDark = isDark,
+                        isRoot = true
+                    )
+                }
             }
-        } else {
+        } else if (isValidDisplayNode(parsedData)) {
             JsonNodeRenderer(
                 keyName = "data",
                 data = parsedData,
@@ -96,6 +101,27 @@ fun JsonTreeViewer(
     }
 }
 
+private fun isValidDisplayNode(data: Any?): Boolean {
+    return when (data) {
+        null, JSONObject.NULL -> false
+        is String -> data.isNotBlank()
+        is JSONArray -> data.length() > 0
+        is JSONObject -> {
+            var hasValid = false
+            val it = data.keys()
+            while (it.hasNext()) {
+                val k = it.next()
+                if (isValidDisplayNode(data.opt(k))) {
+                    hasValid = true
+                    break
+                }
+            }
+            hasValid
+        }
+        else -> true
+    }
+}
+
 @Composable
 private fun JsonNodeRenderer(
     keyName: String,
@@ -103,12 +129,17 @@ private fun JsonNodeRenderer(
     isDark: Boolean,
     isRoot: Boolean = false
 ) {
+    if (!isValidDisplayNode(data)) return
+
     var expanded by remember { mutableStateOf(isRoot) }
 
     when (data) {
         is JSONObject -> {
-            val keys = remember(data) { data.keys().asSequence().toList() }
+            val keys = remember(data) {
+                data.keys().asSequence().filter { isValidDisplayNode(data.opt(it)) }.toList()
+            }
             val count = keys.size
+            if (count == 0 && !isRoot) return
 
             Box(
                 modifier = Modifier
@@ -175,6 +206,7 @@ private fun JsonNodeRenderer(
 
         is JSONArray -> {
             val count = data.length()
+            if (count == 0 && !isRoot) return
 
             Box(
                 modifier = Modifier

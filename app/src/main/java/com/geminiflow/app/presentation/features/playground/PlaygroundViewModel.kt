@@ -15,8 +15,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import org.json.JSONArray
-import org.json.JSONObject
+import com.geminiflow.app.domain.model.log.ApiLogRecord
+import com.geminiflow.app.domain.model.log.ApiLogRequest
+import com.geminiflow.app.domain.model.log.ApiLogResponse
 
 class PlaygroundViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -130,42 +131,22 @@ class PlaygroundViewModel(application: Application) : AndroidViewModel(applicati
                 val finalResponseText = textBuilder.toString()
 
                 try {
-                    val reqJson = JSONObject().apply {
-                        put("prompt", prompt)
-                        put("model", _uiState.value.selectedModel)
-                    }
-                    val mediaJsonArray = JSONArray()
-                    for (asset in mediaAssets) {
-                        val obj = JSONObject().apply {
-                            put("id", asset.id)
-                            put("rawUrl", asset.rawUrl)
-                            when (asset) {
-                                is MediaAsset.LocalReady -> {
-                                    put("status", "SUCCESS")
-                                    put("localFilePath", asset.localFile.absolutePath)
-                                    put("sizeBytes", asset.sizeBytes)
-                                }
-                                is MediaAsset.Downloading -> {
-                                    put("status", "DOWNLOADING")
-                                }
-                                is MediaAsset.Failed -> {
-                                    put("status", "FAILED")
-                                    put("error", asset.errorMessage)
-                                }
-                            }
-                        }
-                        mediaJsonArray.put(obj)
-                    }
-                    val respJson = JSONObject().apply {
-                        put("text", finalResponseText)
-                        put("mediaAssets", mediaJsonArray)
-                        if (generationError != null) put("error", generationError)
-                    }
+                    val readyImages = mediaAssets.filterIsInstance<MediaAsset.LocalReady>().map { it.localFile.name }
                     apiLogManager.logInteraction(
-                        agentName = "Playground (${_uiState.value.selectedModel})",
-                        durationMs = durationMs,
-                        request = reqJson,
-                        response = respJson
+                        ApiLogRecord(
+                            timestamp = "",
+                            agentName = "Playground (${_uiState.value.selectedModel})",
+                            durationMs = durationMs,
+                            request = ApiLogRequest(
+                                model = _uiState.value.selectedModel,
+                                prompt = prompt
+                            ),
+                            response = ApiLogResponse(
+                                text = finalResponseText.takeIf { it.isNotBlank() },
+                                images = readyImages.takeIf { it.isNotEmpty() },
+                                error = generationError
+                            )
+                        )
                     )
                 } catch (logEx: Exception) {
                     Log.w(TAG, "Failed to record sandbox API log: ${logEx.message}")
