@@ -8,6 +8,7 @@ data class ChatRequestDto(
     val prompt: String,
     @SerialName("system_prompt") val systemPrompt: String? = null,
     val model: String? = null,
+    val thinking: String? = null, // "low", "medium", "high"
     val language: String = "zh-TW",
     val images: List<String> = emptyList(), // Base64 編碼字串或 Data URI
     @SerialName("session_id") val sessionId: String? = null,

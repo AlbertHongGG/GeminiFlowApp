@@ -1,8 +1,8 @@
 package com.geminiflow.app.data.network.export
 
-import com.geminiflow.app.data.api.payload.JSONObjectCompat
 import com.geminiflow.app.domain.model.export.ImageExportMetadata
 import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * Google Gemini c8o8Fe 原圖導出 Batchexecute 負載建構器。
@@ -43,14 +43,14 @@ class ImageExportPayloadBuilder(
         //   correlationId
         // ]
         val innerPart0 = JSONArray().apply {
-            put(imgBlock.opt(0) ?: JSONObjectCompat.NULL)
+            put(imgBlock.opt(0) ?: JSONObject.NULL)
             put(node1Formatted)
-            put(JSONObjectCompat.NULL)
-            put(imgBlock.opt(3) ?: JSONObjectCompat.NULL)
-            put(JSONObjectCompat.NULL)
-            put(JSONObjectCompat.NULL)
-            put(JSONObjectCompat.NULL)
-            put(JSONObjectCompat.NULL)
+            put(JSONObject.NULL)
+            put(imgBlock.opt(3) ?: JSONObject.NULL)
+            put(JSONObject.NULL)
+            put(JSONObject.NULL)
+            put(JSONObject.NULL)
+            put(JSONObject.NULL)
             put(imgBlock.optString(8, metadata.imageId))
             put(correlationId)
         }
@@ -60,7 +60,7 @@ class ImageExportPayloadBuilder(
             put(metadata.responseId)
             put(metadata.choiceId)
             put(metadata.conversationId)
-            put(JSONObjectCompat.NULL)
+            put(JSONObject.NULL)
             put(correlationId)
         }
 
@@ -77,7 +77,7 @@ class ImageExportPayloadBuilder(
         val rpcItem = JSONArray().apply {
             put(RPC_ID)
             put(innerPayload.toString())
-            put(JSONObjectCompat.NULL)
+            put(JSONObject.NULL)
             put("generic")
         }
 

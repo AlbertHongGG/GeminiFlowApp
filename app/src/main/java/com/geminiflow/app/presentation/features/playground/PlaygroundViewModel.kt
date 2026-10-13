@@ -8,7 +8,9 @@ import com.geminiflow.app.GeminiFlowApplication
 import com.geminiflow.app.domain.model.chat.ChatRequest
 import com.geminiflow.app.domain.model.chat.MediaAsset
 import com.geminiflow.app.domain.model.chat.MessageDeliveryState
+import com.geminiflow.app.domain.model.chat.ModelFamily
 import com.geminiflow.app.domain.model.chat.PlaygroundChatMessage
+import com.geminiflow.app.domain.model.chat.ThinkingLevel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,8 +38,16 @@ class PlaygroundViewModel(application: Application) : AndroidViewModel(applicati
 
     private var playgroundJob: Job? = null
 
+    fun selectFamily(family: ModelFamily) {
+        _uiState.update { it.copy(selectedFamily = family) }
+    }
+
     fun selectModel(model: String) {
-        _uiState.update { it.copy(selectedModel = model) }
+        selectFamily(ModelFamily.fromModelName(model))
+    }
+
+    fun selectThinking(thinking: ThinkingLevel) {
+        _uiState.update { it.copy(selectedThinking = thinking) }
     }
 
     fun updatePromptInput(text: String) {
@@ -91,7 +101,8 @@ class PlaygroundViewModel(application: Application) : AndroidViewModel(applicati
             try {
                 val req = ChatRequest(
                     prompt = prompt,
-                    model = _uiState.value.selectedModel
+                    model = _uiState.value.selectedModel,
+                    thinking = _uiState.value.selectedThinking
                 )
 
                 streamChatUseCase(req).collect { chunk ->

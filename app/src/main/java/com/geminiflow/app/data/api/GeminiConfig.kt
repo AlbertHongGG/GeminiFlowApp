@@ -6,7 +6,7 @@ object GeminiConfig {
         "https://gemini.google.com/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate"
     const val UPLOAD_IMAGE_URL = "https://content-push.googleapis.com/upload/"
 
-    const val REQUEST_BL_PARAM = "boq_assistant-bard-web-server_20260618.10_p0"
+    const val REQUEST_BL_PARAM = "boq_gemini-web-uiserver_20261012.15_p0"
     const val REQUIRED_COOKIE_NAME = "__Secure-1PSID"
     const val GOOGLE_COOKIE_DOMAIN = ".google.com"
 
@@ -34,29 +34,5 @@ object GeminiConfig {
         "x-goog-upload-header-content-length" to "",
         "x-goog-upload-protocol" to "resumable",
         "x-tenant-id" to "bard-storage"
-    )
-
-    val MODEL_HEADERS = mapOf(
-        "gemini-3-pro" to mapOf(
-            "x-goog-ext-525001261-jspb" to "[1,null,null,null,\"e6fa609c3fa255c0\",null,null,0,[4,5,6,8],null,null,2,null,null,3,1,\"{ext_uuid}\"]"
-        ),
-        "gemini-3.5-flash" to mapOf(
-            "x-goog-ext-525001261-jspb" to "[1,null,null,null,\"56fdd199312815e2\",null,null,0,[4,5,6,8],null,null,2,null,null,1,1,\"{ext_uuid}\"]"
-        ),
-        "gemini-3.6-flash" to mapOf(
-            "x-goog-ext-525001261-jspb" to "[1,null,null,null,\"56fdd199312815e2\",null,null,0,[4,5,6,8],null,null,2,null,null,1,1,\"{ext_uuid}\"]"
-        ),
-        "gemini-3.6-flash-thinking" to mapOf(
-            "x-goog-ext-525001261-jspb" to "[1,null,null,null,\"56fdd199312815e2\",null,null,0,[4,5,6,8],null,null,2,null,null,1,2,\"{ext_uuid}\"]"
-        ),
-        "gemini-3.7-flash" to mapOf(
-            "x-goog-ext-525001261-jspb" to "[1,null,null,null,\"56fdd199312815e2\",null,null,0,[4,5,6,8],null,null,2,null,null,1,1,\"{ext_uuid}\"]"
-        ),
-        "gemini-3.7-flash-thinking" to mapOf(
-            "x-goog-ext-525001261-jspb" to "[1,null,null,null,\"56fdd199312815e2\",null,null,0,[4,5,6,8],null,null,2,null,null,1,2,\"{ext_uuid}\"]"
-        ),
-        "gemini-3-pro-image-preview" to mapOf(
-            "x-goog-ext-525001261-jspb" to "[1,null,null,null,\"e6fa609c3fa255c0\",null,null,0,[4,5,6,8],null,null,2,null,null,3,2,\"{ext_uuid}\"]"
-        )
     )
 }

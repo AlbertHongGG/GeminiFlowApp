@@ -1,56 +1,44 @@
 package com.geminiflow.app.presentation.features.playground.model
 
+import com.geminiflow.app.domain.model.chat.ModelFamily
+
 data class PlaygroundModelSpec(
+    val family: ModelFamily,
     val id: String,
     val displayName: String,
     val shortName: String,
     val tag: String,
-    val isImageCapable: Boolean = false,
-    val isThinkingCapable: Boolean = false
+    val isImageCapable: Boolean = false
 ) {
     companion object {
         val AVAILABLE_MODELS = listOf(
             PlaygroundModelSpec(
+                family = ModelFamily.FLASH,
+                id = "gemini-3.8-flash",
+                displayName = "Gemini 3.8 Flash",
+                shortName = "3.8 Flash",
+                tag = "極速",
+                isImageCapable = false
+            ),
+            PlaygroundModelSpec(
+                family = ModelFamily.PRO,
                 id = "gemini-3-pro",
                 displayName = "Gemini 3 Pro",
                 shortName = "Pro",
                 tag = "旗艦 · 生圖",
-                isImageCapable = true
-            ),
-            PlaygroundModelSpec(
-                id = "gemini-3.5-flash",
-                displayName = "Gemini 3.5 Flash",
-                shortName = "Flash",
-                tag = "極速響應",
-                isImageCapable = false
-            ),
-            PlaygroundModelSpec(
-                id = "gemini-3.7-flash",
-                displayName = "Gemini 3.7 Flash",
-                shortName = "3.7 Flash",
-                tag = "平衡新世代",
-                isImageCapable = false
-            ),
-            PlaygroundModelSpec(
-                id = "gemini-3.7-flash-thinking",
-                displayName = "Gemini 3.7 Thinking",
-                shortName = "Thinking",
-                tag = "深度思考",
-                isThinkingCapable = true
-            ),
-            PlaygroundModelSpec(
-                id = "gemini-3-flash-image",
-                displayName = "Flash Image",
-                shortName = "Image",
-                tag = "極速出圖",
                 isImageCapable = true
             )
         )
 
         val DEFAULT = AVAILABLE_MODELS.first()
 
+        fun findByFamily(family: ModelFamily): PlaygroundModelSpec {
+            return AVAILABLE_MODELS.firstOrNull { it.family == family } ?: DEFAULT
+        }
+
         fun findById(id: String): PlaygroundModelSpec {
-            return AVAILABLE_MODELS.find { it.id == id } ?: DEFAULT
+            val family = ModelFamily.fromModelName(id)
+            return findByFamily(family)
         }
     }
 }

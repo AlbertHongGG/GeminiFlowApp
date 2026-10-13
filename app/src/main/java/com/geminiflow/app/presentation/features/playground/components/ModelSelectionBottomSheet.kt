@@ -1,18 +1,19 @@
 package com.geminiflow.app.presentation.features.playground.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
@@ -27,6 +28,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.geminiflow.app.domain.model.chat.ModelFamily
+import com.geminiflow.app.domain.model.chat.ThinkingLevel
 import com.geminiflow.app.presentation.components.ImmersiveBottomSheet
 import com.geminiflow.app.presentation.features.playground.model.PlaygroundModelSpec
 import com.geminiflow.app.presentation.theme.AppColors
@@ -34,8 +37,10 @@ import com.geminiflow.app.presentation.theme.AppColors
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ModelSelectionBottomSheet(
-    selectedModelId: String,
-    onModelSelected: (String) -> Unit,
+    selectedFamily: ModelFamily,
+    selectedThinking: ThinkingLevel = ThinkingLevel.LOW,
+    onFamilySelected: (ModelFamily) -> Unit,
+    onThinkingSelected: (ThinkingLevel) -> Unit,
     onDismiss: () -> Unit
 ) {
     ImmersiveBottomSheet(
@@ -45,19 +50,17 @@ fun ModelSelectionBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f, fill = false)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+                .padding(bottom = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             PlaygroundModelSpec.AVAILABLE_MODELS.forEach { model ->
-                val isSelected = model.id == selectedModelId
+                val isSelected = model.family == selectedFamily
 
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable {
-                            onModelSelected(model.id)
-                            onDismiss()
+                            onFamilySelected(model.family)
                         },
                     shape = RoundedCornerShape(12.dp),
                     color = if (isSelected) Color(0xFFF1F5F9) else Color.Transparent,
@@ -99,6 +102,58 @@ fun ModelSelectionBottomSheet(
                             tint = if (isSelected) Color(0xFF0F172A) else Color(0xFFCBD5E1),
                             modifier = Modifier.size(20.dp)
                         )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "思考強度",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = AppColors.textSecondaryLight,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+            )
+
+            // 水平三段式分段膠囊按鈕 (Segmented Control)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFFF1F5F9), RoundedCornerShape(10.dp))
+                    .padding(3.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                val thinkingOptions = listOf(
+                    ThinkingLevel.LOW to "低",
+                    ThinkingLevel.MEDIUM to "中",
+                    ThinkingLevel.HIGH to "高"
+                )
+
+                thinkingOptions.forEach { (level, label) ->
+                    val isLevelSelected = level == selectedThinking
+
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable {
+                                onThinkingSelected(level)
+                            },
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isLevelSelected) Color.White else Color.Transparent,
+                        shadowElevation = if (isLevelSelected) 1.dp else 0.dp
+                    ) {
+                        Box(
+                            modifier = Modifier.padding(vertical = 9.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                fontSize = 13.sp,
+                                fontWeight = if (isLevelSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isLevelSelected) Color(0xFF0F172A) else Color(0xFF64748B)
+                            )
+                        }
                     }
                 }
             }

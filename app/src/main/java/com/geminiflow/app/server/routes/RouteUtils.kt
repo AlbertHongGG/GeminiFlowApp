@@ -4,6 +4,7 @@ import android.util.Base64
 import com.geminiflow.app.data.storage.TrafficLogManager
 import com.geminiflow.app.domain.model.chat.ChatRequest
 import com.geminiflow.app.domain.model.chat.ImagePayload
+import com.geminiflow.app.domain.model.chat.ThinkingLevel
 import com.geminiflow.app.domain.model.common.PayloadException
 import com.geminiflow.app.domain.model.log.TrafficLog
 import com.geminiflow.app.server.dto.ChatRequestDto
@@ -36,6 +37,8 @@ object RouteUtils {
         val model = dto.model?.takeIf { it.isNotBlank() }
             ?: throw PayloadException("缺少模型參數 (model)，呼叫端必須明確指定欲使用的模型")
 
+        val thinking = ThinkingLevel.fromValue(dto.thinking)
+
         val imagePayloads = dto.images.mapIndexed { index, rawStr ->
             decodeBase64Image(rawStr, index)
         }
@@ -44,6 +47,7 @@ object RouteUtils {
             prompt = dto.prompt,
             systemPrompt = dto.systemPrompt,
             model = model,
+            thinking = thinking,
             language = dto.language,
             images = imagePayloads,
             sessionId = dto.sessionId,

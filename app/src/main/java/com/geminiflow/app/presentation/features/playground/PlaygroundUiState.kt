@@ -1,10 +1,16 @@
 package com.geminiflow.app.presentation.features.playground
 
+import com.geminiflow.app.domain.model.chat.ModelFamily
 import com.geminiflow.app.domain.model.chat.PlaygroundChatMessage
+import com.geminiflow.app.domain.model.chat.ThinkingLevel
 
 data class PlaygroundUiState(
-    val selectedModel: String = "gemini-3-pro",
+    val selectedFamily: ModelFamily = ModelFamily.FLASH,
+    val selectedThinking: ThinkingLevel = ThinkingLevel.LOW,
     val promptInput: String = "請用繁體中文自我介紹，並告訴我你支援什麼功能。",
     val playgroundMessages: List<PlaygroundChatMessage> = emptyList(),
     val isGenerating: Boolean = false
-)
+) {
+    val selectedModel: String
+        get() = if (selectedFamily == ModelFamily.PRO) "gemini-3-pro" else "gemini-3.8-flash"
+}

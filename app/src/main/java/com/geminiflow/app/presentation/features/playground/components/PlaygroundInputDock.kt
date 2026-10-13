@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.geminiflow.app.domain.model.chat.ThinkingLevel
 import com.geminiflow.app.presentation.features.playground.model.PlaygroundModelSpec
 import com.geminiflow.app.presentation.theme.AppColors
 
@@ -46,6 +47,7 @@ fun PlaygroundInputDock(
     input: String,
     onInputChange: (String) -> Unit,
     currentModelSpec: PlaygroundModelSpec,
+    currentThinking: ThinkingLevel = ThinkingLevel.LOW,
     isGenerating: Boolean,
     onSend: () -> Unit,
     onCancelGeneration: () -> Unit,
@@ -139,8 +141,13 @@ fun PlaygroundInputDock(
                             modifier = Modifier.padding(horizontal = 16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            val pillText = when (currentThinking) {
+                                ThinkingLevel.LOW -> currentModelSpec.shortName
+                                ThinkingLevel.MEDIUM -> "${currentModelSpec.shortName} · 中"
+                                ThinkingLevel.HIGH -> "${currentModelSpec.shortName} · 高"
+                            }
                             Text(
-                                text = currentModelSpec.shortName,
+                                text = pillText,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color(0xFF1E293B)

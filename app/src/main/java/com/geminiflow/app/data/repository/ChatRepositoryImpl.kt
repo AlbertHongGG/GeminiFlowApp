@@ -3,7 +3,7 @@ package com.geminiflow.app.data.repository
 import android.util.Log
 import com.geminiflow.app.data.api.GeminiConfig
 import com.geminiflow.app.data.api.GeminiStreamParser
-import com.geminiflow.app.data.api.payload.PayloadBuilderFactory
+import com.geminiflow.app.data.api.protocol.GeminiProtocolEngine
 import com.geminiflow.app.data.network.RequestTelemetryTag
 import com.geminiflow.app.domain.model.auth.GeminiTokens
 import com.geminiflow.app.domain.model.auth.SessionData
@@ -28,7 +28,8 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 
 class ChatRepositoryImpl(
-    private val client: OkHttpClient
+    private val client: OkHttpClient,
+    private val protocolEngine: GeminiProtocolEngine = GeminiProtocolEngine(GeminiConfig.REQUEST_BL_PARAM)
 ) : ChatRepository {
 
     companion object {
@@ -103,26 +104,30 @@ class ChatRepositoryImpl(
     ): Flow<ChatResponseChunk> = flow {
         val cookiesHeader = cookies.entries.joinToString("; ") { "${it.key}=${it.value}" }
         val conversationIds = sessionData?.conversationIds ?: emptyList()
+        val turnIndex = if (conversationIds.isNotEmpty()) 1 else 0
 
         var uploads = emptyList<Pair<String, String>>()
         if (request.images.isNotEmpty()) {
             uploads = uploadImages(request.images, cookiesHeader)
         }
 
-        val builder = PayloadBuilderFactory.create(request, tokens, uploads, conversationIds)
-        val params = builder.buildParams(GeminiConfig.REQUEST_BL_PARAM)
-        val payload = builder.buildPayload(GeminiConfig.MODEL_HEADERS)
-        val customHeaders = builder.buildHeaders(GeminiConfig.MODEL_HEADERS)
+        val protoReq = protocolEngine.buildRequest(
+            request = request,
+            tokens = tokens,
+            uploads = uploads,
+            conversationIds = conversationIds,
+            turnIndex = turnIndex
+        )
 
         val urlBuilder = GeminiConfig.GEMINI_REQUEST_URL.toHttpUrlOrNull()?.newBuilder()
             ?: throw NetworkException("無效的 Gemini URL: ${GeminiConfig.GEMINI_REQUEST_URL}")
 
-        params.forEach { (k, v) ->
+        protoReq.params.forEach { (k, v) ->
             urlBuilder.addQueryParameter(k, v)
         }
 
         val formBuilder = FormBody.Builder()
-        payload.forEach { (k, v) ->
+        protoReq.postData.forEach { (k, v) ->
             formBuilder.add(k, v)
         }
         val formBody = formBuilder.build()
@@ -135,7 +140,7 @@ class ChatRepositoryImpl(
         GeminiConfig.DEFAULT_HTTP_HEADERS.forEach { (k, v) ->
             reqBuilder.header(k, v)
         }
-        customHeaders.forEach { (k, v) ->
+        protoReq.headers.forEach { (k, v) ->
             reqBuilder.header(k, v)
         }
 

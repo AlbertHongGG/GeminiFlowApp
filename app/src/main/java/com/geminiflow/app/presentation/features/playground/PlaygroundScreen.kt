@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.geminiflow.app.domain.model.chat.ThinkingLevel
 import com.geminiflow.app.presentation.components.ImmersiveScaffold
 import com.geminiflow.app.presentation.features.playground.components.ModelSelectionBottomSheet
 import com.geminiflow.app.presentation.features.playground.components.PlaygroundChatBubble
@@ -53,8 +54,8 @@ fun PlaygroundScreen(
     var showModelSheet by remember { mutableStateOf(false) }
     var showTemplateSheet by remember { mutableStateOf(false) }
 
-    val currentModelSpec = remember(uiState.selectedModel) {
-        PlaygroundModelSpec.findById(uiState.selectedModel)
+    val currentModelSpec = remember(uiState.selectedFamily) {
+        PlaygroundModelSpec.findByFamily(uiState.selectedFamily)
     }
 
     LaunchedEffect(uiState.playgroundMessages.size, uiState.playgroundMessages.lastOrNull()?.text?.length) {
@@ -65,8 +66,10 @@ fun PlaygroundScreen(
 
     if (showModelSheet) {
         ModelSelectionBottomSheet(
-            selectedModelId = uiState.selectedModel,
-            onModelSelected = { viewModel.selectModel(it) },
+            selectedFamily = uiState.selectedFamily,
+            selectedThinking = uiState.selectedThinking,
+            onFamilySelected = { viewModel.selectFamily(it) },
+            onThinkingSelected = { viewModel.selectThinking(it) },
             onDismiss = { showModelSheet = false }
         )
     }
@@ -202,6 +205,7 @@ fun PlaygroundScreen(
                     input = uiState.promptInput,
                     onInputChange = { viewModel.updatePromptInput(it) },
                     currentModelSpec = currentModelSpec,
+                    currentThinking = uiState.selectedThinking,
                     isGenerating = uiState.isGenerating,
                     onSend = { viewModel.sendPlaygroundPrompt() },
                     onCancelGeneration = { viewModel.cancelPlaygroundGeneration() },
