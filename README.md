@@ -1,199 +1,269 @@
-# GeminiFlow Android App
+# GeminiFlow 本機服務對接指南
 
-GeminiFlow 是一個基於 Android 原生架構（Kotlin 2.0 / Jetpack Compose / Ktor CIO 嵌入式伺服器 / OkHttp）的本機 AI 服務端與測試沙盒應用程式。
-
-應用程式在本機啟動非阻塞 HTTP 伺服器（預設為 `http://127.0.0.1:5000`），對外提供文字串流對話（SSE Stream）、對話歷史（Session）與本機圖片生成快取，使本機其他應用程式可直接調用 Gemini 模型。
+GeminiFlow 在 Android 裝置本機運行嵌入式 Ktor HTTP 伺服器，預設監聽端口為 `http://127.0.0.1:5000`（亦可透過區域網路 IP 連線）。本機其他應用程式、前端網頁或腳本可透過標準 HTTP/SSE 請求直接對接 Gemini 最新官方協議模型。
 
 ---
 
-## 本機 API 端點規範 (127.0.0.1:5000)
+## 伺服器端口與連線資訊
 
-### 1. 系統健康檢查
-```http
-GET /health
+* **基礎位址 (Base URL)**：`http://127.0.0.1:5000`（或 `http://<裝置區域網路IP>:5000`）
+* **跨域資源共享 (CORS)**：已全域啟用，支援任何 Origin 跨域呼叫（允許 GET, POST, OPTIONS 方法及 Content-Type 標頭）。
+* **請求格式**：`Content-Type: application/json; charset=utf-8`
+* **支援模型 (model)**：
+  * `gemini-3.8-flash`：極速回應，適合一般問答、資訊萃取與日常編程。
+  * `gemini-3-pro`：旗艦推理，支援高難度邏輯分析、多模態圖文理解與原生圖像生成。
+* **思考強度 (thinking)**：
+  * `low`：等級 1，極速回應（預設值）。
+  * `medium`：等級 4，深度推理，平衡思考時間與輸出品質。
+  * `high`：等級 2，極致推理，複雜問題深度思維鏈。
+
+---
+
+## API 端點一覽
+
+| HTTP 方法 | 端點路徑 | 功能說明 | 回應格式 |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/health` | 檢查本機伺服器運行狀態 | `application/json` |
+| `POST` | `/chat` | 一般文字對話、多模態圖文對話與生圖 (非串流) | `application/json` |
+| `POST` | `/stream` | 即時打字機串流對話 (SSE Stream) | `text/event-stream` |
+| `GET` | `/images/{filename}` | 讀取本機快取的生成圖片實體二進位檔案 | `image/png` 或 `image/jpeg` |
+
+---
+
+## 請求參數規格 (`POST /chat` 與 `POST /stream`)
+
+兩個對話端點共用相同的 JSON 請求體結構：
+
+| 欄位名稱 | 型別 | 必填/選填 | 預設值 | 說明 |
+| :--- | :--- | :--- | :--- | :--- |
+| `prompt` | String | 必填 | 無 | 輸入之提示詞或任務內容。 |
+| `model` | String | 必填 | 無 | 指定調用之模型：`gemini-3.8-flash` 或 `gemini-3-pro`。 |
+| `thinking` | String | 選填 | `low` | 思考模式強度：`low`、`medium`、`high`。 |
+| `system_prompt` | String | 選填 | `null` | 系統人設指令與全域角色約束。 |
+| `session_id` | String | 選填 | `null` | 會話識別碼。傳入相同值即可自動串接多輪上下文記憶。 |
+| `images` | List<String> | 選填 | `[]` | 傳入圖片列表，支援純 Base64 或 Data URI 字串。 |
+| `language` | String | 選填 | `zh-TW` | 回應偏好語系（如 `zh-TW`, `en-US`, `ja-JP`）。 |
+| `auto_refresh_cookies` | Boolean | 選填 | `true` | 當憑證失效時是否自動觸發後台刷新。 |
+
+---
+
+## 常用組合範例
+
+### 1. 極速日常問答 (Flash + 預設低思考)
+適用場景：一般知識查詢、快速摘要、文字潤飾。
+
+**請求：**
+```bash
+curl -X POST http://127.0.0.1:5000/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gemini-3.8-flash",
+    "prompt": "請用繁體中文列出太陽系前五大行星。"
+  }'
 ```
-回應：
+**回應 (HTTP 200)：**
 ```json
 {
-  "ok": true
-}
-```
-
-### 2. 一般文字對話與會話維持
-```http
-POST /chat
-Content-Type: application/json
-
-{
-  "prompt": "你好，請介紹你自己",
-  "model": "gemini-3-pro",
-  "session_id": "session_default"
-}
-```
-回應：
-```json
-{
-  "text": "你好！我是 Gemini...",
+  "text": "太陽系體積最大的前五大行星依序為：\n1. 木星 (Jupiter)\n2. 土星 (Saturn)\n3. 天王星 (Uranus)\n4. 海王星 (Neptune)\n5. 地球 (Earth)",
   "images": []
 }
 ```
 
-### 3. 文字串流對話 (SSE Stream)
-```http
-POST /stream
-Content-Type: application/json
+---
 
+### 2. 深度邏輯推理與代碼除錯 (Flash/Pro + 高思考)
+適用場景：演算法解題、架構重構、複雜邏輯論證。
+
+**請求：**
+```bash
+curl -X POST http://127.0.0.1:5000/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gemini-3.8-flash",
+    "thinking": "high",
+    "prompt": "請分析快速排序法在最差情況下的時間複雜度，並說明如何避免退化至 O(n^2)。"
+  }'
+```
+**回應 (HTTP 200)：**
+```json
 {
-  "prompt": "請寫一首現代詩",
-  "model": "gemini-3-pro"
+  "text": "快速排序法 (Quick Sort) 在最差情況下的時間複雜度為 O(n^2)...（省略深度解析）",
+  "images": []
 }
 ```
-串流事件格式：
+
+---
+
+### 3. 指定系統人設與格式約束 (System Prompt)
+適用場景：約束輸出必須為純 JSON、角色扮演、API 資料清洗。
+
+**請求：**
+```bash
+curl -X POST http://127.0.0.1:5000/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gemini-3.8-flash",
+    "system_prompt": "你是一個專業的資料清洗程式。請只輸出符合 JSON 陣列格式的結果，不要帶任何 Markdown 或解說。",
+    "prompt": "台北, 台中, 高雄, 台南"
+  }'
+```
+**回應 (HTTP 200)：**
+```json
+{
+  "text": "[\"台北\", \"台中\", \"高雄\", \"台南\"]",
+  "images": []
+}
+```
+
+---
+
+### 4. 連續多輪對話上下文維持 (Session Tracking)
+適用場景：聊天機器人、步驟引導式任務。只要攜帶相同的 `session_id`，模型即具備前文記憶。
+
+**第一輪請求：**
+```bash
+curl -X POST http://127.0.0.1:5000/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gemini-3.8-flash",
+    "session_id": "user_session_1001",
+    "prompt": "我的幸運數字是 7，請記住它。"
+  }'
+```
+
+**第二輪延續請求：**
+```bash
+curl -X POST http://127.0.0.1:5000/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gemini-3.8-flash",
+    "session_id": "user_session_1001",
+    "prompt": "我剛才說我的幸運數字是多少？"
+  }'
+```
+**第二輪回應 (HTTP 200)：**
+```json
+{
+  "text": "您剛才說您的幸運數字是 7。",
+  "images": []
+}
+```
+
+---
+
+### 5. 圖像輸入多模態分析 (Multimodal Vision)
+適用場景：看圖辨物、圖表數據分析、光學文字辨識 (OCR)。將圖片轉為 Base64 字串傳入 `images` 陣列。
+
+**請求：**
+```bash
+curl -X POST http://127.0.0.1:5000/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gemini-3-pro",
+    "prompt": "這張圖片裡有什麼？請詳細描述細節。",
+    "images": [
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+    ]
+  }'
+```
+**回應 (HTTP 200)：**
+```json
+{
+  "text": "這是一張尺寸為 1x1 像素的純紅色影像...",
+  "images": []
+}
+```
+
+---
+
+### 6. 旗艦繪圖創作與本機快取 (Pro Image Generation)
+適用場景：依提示詞生成圖像。系統會自動完成 Google 內部三跳轉鑑權下載並快取至本機，直接回傳可存取的本機 HTTP 圖片網址。
+
+**請求：**
+```bash
+curl -X POST http://127.0.0.1:5000/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gemini-3-pro",
+    "prompt": "請畫一隻戴著護目鏡在火星漫步的柴犬，賽博朋克風格"
+  }'
+```
+**回應 (HTTP 200)：**
+```json
+{
+  "text": "這是為您生成的柴犬圖片：",
+  "images": [
+    "http://127.0.0.1:5000/images/20261014_141000_gemini-3-pro_generated.png"
+  ]
+}
+```
+**客戶端取得實體圖片：**
+```bash
+curl -O http://127.0.0.1:5000/images/20261014_141000_gemini-3-pro_generated.png
+```
+
+---
+
+### 7. SSE 即時打字機串流對話 (`POST /stream`)
+適用場景：降低首字延遲、前端即時打字機文字呈現。
+
+**請求：**
+```bash
+curl -N -X POST http://127.0.0.1:5000/stream \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gemini-3.8-flash",
+    "thinking": "low",
+    "prompt": "請用繁體中文寫一首關於秋天的三行俳句。"
+  }'
+```
+**串流事件輸出 (text/event-stream)：**
 ```text
 event: text
-data: {"chunk":"微風"}
+data: {"chunk":"落葉飄幽徑，"}
 
 event: text
-data: {"chunk":"輕拂街角"}
+data: {"chunk":"秋風拂過晚霞紅，"}
+
+event: text
+data: {"chunk":"寒蟬咽殘更。"}
 
 event: done
 data: {}
 ```
 
-### 4. 圖片生成
-```http
-POST /chat
-Content-Type: application/json
+---
 
-{
-  "prompt": "繪製一隻在草地上奔跑的柴犬",
-  "model": "gemini-3-pro"
-}
-```
-回應：
-```json
-{
-  "text": "這是為您生成的柴犬圖片：",
-  "images": [
-    "http://127.0.0.1:5000/images/20260926_190000_gemini-3-pro_generated.png"
-  ]
-}
-```
+## HTTP 狀態碼與錯誤處理
 
-### 5. 靜態圖片存取
-```http
-GET /images/{filename}
-```
-回應對應二進位圖片資料（`Content-Type: image/png`）。
+| HTTP 狀態碼 | 錯誤原因 | 解決方式 |
+| :--- | :--- | :--- |
+| `200 OK` | 請求成功完成 | 正常解析 JSON 或串流事件。 |
+| `400 Bad Request` | 缺少必要欄位（例如未提供 `model` 或 `prompt`） | 檢查請求體 JSON，確保包含 `model` 與 `prompt`。 |
+| `401 Unauthorized` | Google 帳號憑證過期或未完成登入授權 | 開啟手機 GeminiFlow App 重新點擊 Google 登入並儲存憑證。 |
+| `422 Unprocessable Entity` | 傳入無效的 Base64 圖片資料或參數損毀 | 確認 `images` 陣列中的字串為有效 Base64 格式。 |
+| `500 Internal Server Error`| 伺服器內部非預期例外 | 查看手機端「日誌紀錄」獲取具體 StackTrace。 |
+| `502 Bad Gateway` | 本機與 Google 端點網路連線失敗或超時 | 檢查裝置網路連線是否暢通。 |
 
 ---
 
-## 建置、測試與安裝
+## 開發與測試建置命令
 
-### 執行單元測試
-```bash
-./gradlew.bat testDebugUnitTest
-```
-包含以下測試驗證：
-- `WebkitCookieJarTest`：驗證 Hop 0 與 Hop 1 網域 Cookie 隔離與注入。
-- `ImageRepositoryTest`：驗證 Base64 行內解碼與 HTTP 原子性下載。
-- `TrafficLoggingInterceptorTest`：驗證 RFC 7230 記憶體遙測標籤相容性。
-- `GeminiStreamParserTest`：驗證思考過程與思維鏈過濾。
-
-### 編譯 Debug APK
-```bash
-./gradlew.bat assembleDebug
-```
-產出檔案位於：
-```text
-app/build/outputs/apk/debug/app-debug.apk
-```
-
-### 安裝至實體設備
-```bash
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-```
+* 執行全套單元測試：
+  ```bash
+  ./gradlew.bat testDebugUnitTest
+  ```
+* 編譯 Debug APK：
+  ```bash
+  ./gradlew.bat assembleDebug
+  ```
+* 透過 ADB 安裝至手機：
+  ```bash
+  adb install -r app/build/outputs/apk/debug/app-debug.apk
+  ```
 
 ---
 
-## 使用說明
+## 相關技術文檔
 
-1. 開啟 GeminiFlow App。
-2. 進入帳號驗證頁面，透過內建 WebView 登入 Google 帳號。
-3. 登入成功後點擊儲存憑證，確認 Google 憑證狀態為「已驗證」。
-4. 依系統提示設定電池最佳化為「無限制」，以防止後台被系統終止。
-5. 點擊「啟動本地伺服器」，狀態列即顯示伺服器常駐通知。
-6. 本機其他客戶端應用程式或腳本即可向 `http://127.0.0.1:5000` 發送 API 請求。
-
----
-
-## Google CDN 圖片下載機制與踩坑技術復盤
-
-### 1. 核心驗證鏈路：Google CDN 三跳轉機制 (3-Hop Redirect Chain)
-
-Google Gemini 所產生的圖片資源（`lh3.googleusercontent.com`）具有嚴格的跨網域安全防護機制，其完整交付流程為 3 次 HTTP 跳轉：
-
-```
-[Hop 0] https://lh3.googleusercontent.com/gg-dl/...
-        │
-        │ 條件：嚴禁攜帶 .google.com Cookie
-        ▼
-   HTTP 302 Found (轉向至認證跳板)
-        │
-[Hop 1] https://work.fife.usercontent.google.com/rd-gg-dl/...
-        │
-        │ 條件：必須注入有效 Google Session Cookie (__Secure-1PSID 等)
-        ▼
-   HTTP 302 Found (驗證通過，轉向至實體檔案)
-        │
-[Hop 2] https://lh3.googleusercontent.com/rd-gg-dl/...=s512
-        │
-        ▼
-   HTTP 200 OK (交付 Content-Type: image/jpeg 二進位串流)
-```
-
-### 2. 歷史問題點與失敗嘗試 (Pitfalls)
-
-#### 坑點一：Hop 0 跨域憑證洩漏導致 HTTP 400
-* **現象**：發送圖片下載請求時，伺服器立即回傳 `HTTP 400 Bad Request`。
-* **原因**：舊實作以字串拼接方式直接在請求 Header 加入帳號 Cookie。`lh3.googleusercontent.com` 作為公開沙盒入口，一旦在 Hop 0 接收到包含 `.google.com` 的 Session Cookie，Google 邊緣防火牆會直接判定為跨域憑證外洩並中斷請求。
-* **防範原則**：Hop 0 必須維持純淨請求，不可帶入 `.google.com` 帳號 Cookie。
-
-#### 坑點二：Hop 1 遺漏認證憑證導致 HTTP 403
-* **現象**：跳轉至 `work.fife.usercontent.google.com` 時回傳 `HTTP 403 Forbidden`。
-* **原因**：若客戶端完全不帶 Cookie，或重定向時未自動識別 `.google.com` 主網域，認證跳板無法驗證呼叫者身份。
-* **防範原則**：轉向 Hop 1 時，客戶端必須根據目標網域自動注入本機登入憑證。
-
-#### 坑點三：WebView 沙盒 Canvas/Fetch 跨域限制 (CORS Null Origin)
-* **現象**：嘗試透過隱藏 WebView 執行 JavaScript `fetch()` 或繪製 Canvas 轉 Base64 失敗。
-* **原因**：WebView 載入 `about:blank` 時，其安全來源（Origin）為 `null`。Chromium 沙盒環境嚴格阻擋 `null` 來源對 Google CDN 資源發起帶憑證的請求，導致執行時期拋出 CORS 例外。
-* **防範原則**：不可依賴 WebView 前端環境繞道下載，必須在原生網路層完成下載。
-
-#### 坑點四：下載失敗降級外洩與 UI 高度坍縮
-* **現象**：生成圖片時，助理對話框高度為 0 或呈現完全空白的卡片，且無任何錯誤提示。
-* **原因**：
-  1. 舊系統使用 `List<String>` 混雜本地路徑與遠端網址。當本機下載失敗時，程式邏輯私自將遠端 CDN 網址推入列表作為備援。
-  2. Coil 圖片庫嘗試載入遠端網址時，因無 Hop 1 跳轉憑證而載入失敗，圖片高度保持為 0。
-  3. 與此同時，思考過程過濾器已將模型輸出的思考文字清除，導致整個氣泡既無文字也無有效圖片，最終坍縮為空白。
-* **防範原則**：未下載完成之遠端 CDN 網址絕不可傳遞至 UI 層；任何下載異常必須轉化為明確的失敗狀態，禁止靜默吞噬。
-
-#### 坑點五：修改已簽章網址參數導致簽章失效
-* **現象**：對 `gg-dl` 圖片網址追加 `=s0-d` 或修改 Query Parameter，導致 HTTP 400/404。
-* **原因**：`gg-dl` 路徑中的 Token 已內嵌 Google 的加密雜湊校驗碼，字串的任何變更都會導致伺服器端簽章校驗失敗。
-* **防範原則**：Google CDN 已簽章網址必須原樣發送，禁止擅自拼接或修改後綴。
-
-### 3. 架構解決方案
-
-1. **RFC 6265 規範之 `WebkitCookieJar`**：
-   - 實作 OkHttp `CookieJar` 介面，委託 Android 原生 `CookieManager.getInstance().getCookie(url)`。
-   - 對於 Hop 0（`googleusercontent.com`），`CookieManager` 自動回傳空值，請求不帶 Cookie，順利獲取 302。
-   - 轉向 Hop 1（`work.fife.usercontent.google.com`，符合 `.google.com`），`CookieManager` 自動匹配並注入登入憑證，通過認證。
-2. **本機原子化檔案儲存 (`ImageStorageManager`)**：
-   - 採用專用連線池與自定義標頭（模擬瀏覽器 Sec-Fetch 策略）。
-   - 下載時先寫入 `.tmp` 暫存檔，確認寫入完成且位元組大於 0 後，再以原子操作 `renameTo` 目標檔案，避免 UI 讀取到半殘檔案。
-3. **強型別領域狀態機 (`MediaAsset`)**：
-   - 定義 `LocalReady`、`Downloading`、`Failed` 三種狀態。
-   - UI 僅對 `LocalReady` 本機實體檔案調用 Coil 載入，100% 免疫網路波動與 Cookie 問題。
-   - 下載中呈現進度指示，下載失敗呈現錯誤診斷資訊與重試按鈕。
-
----
+* [Google CDN 圖片三跳轉下載機制與踩坑技術復盤](docs/GOOGLE_CDN_IMAGE_ARCHITECTURE.md)
