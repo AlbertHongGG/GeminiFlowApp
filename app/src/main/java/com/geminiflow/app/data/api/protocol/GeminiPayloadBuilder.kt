@@ -11,7 +11,8 @@ class GeminiPayloadBuilder(
     private val modelSpec: ModelSpec,
     private val reqUuid: String,
     private val uploads: List<Pair<String, String>> = emptyList(),
-    private val conversationIds: List<String> = emptyList(),
+    private val conversationId: String? = null,
+    private val continuationToken: String? = null,
     private val turnIndex: Int = 0
 ) {
     companion object {
@@ -19,18 +20,32 @@ class GeminiPayloadBuilder(
 
         const val IDX_PROMPT_BLOCK = 0
         const val IDX_LANGUAGE = 1
-        const val IDX_CONVERSATION_IDS = 2
         const val IDX_TURN_INDEX = 17
         const val IDX_CAPABILITIES = 30
         const val IDX_REQ_UUID = 59
+        const val IDX_CONVERSATION_CONTEXT = 71
         const val IDX_MODEL_ID = 79
         const val IDX_THINKING_LEVEL = 80
+        const val IDX_NEW_SESSION_FLAG = 96
     }
 
     private val finalPrompt: String = if (!systemPrompt.isNullOrBlank()) {
         "System:\n$systemPrompt\n\nUser:\n$prompt"
     } else {
         prompt
+    }
+
+    private fun buildConversationContext(): Any {
+        if (turnIndex == 0 || conversationId.isNullOrBlank()) {
+            return JSONObject.NULL
+        }
+        return JSONArray().apply {
+            put(conversationId)
+            for (i in 1..6) {
+                put(JSONObject.NULL)
+            }
+            put(continuationToken ?: JSONObject.NULL)
+        }
     }
 
     fun buildInnerArray(): JSONArray {
@@ -60,24 +75,7 @@ class GeminiPayloadBuilder(
         // 1: Language
         arr[IDX_LANGUAGE] = JSONArray().put(language)
 
-        // 2: Context
-        if (conversationIds.isNotEmpty()) {
-            val cId = conversationIds.getOrNull(0) ?: ""
-            val rId = conversationIds.getOrNull(1) ?: ""
-            val rcId = conversationIds.getOrNull(2) ?: ""
-            arr[IDX_CONVERSATION_IDS] = JSONArray().apply {
-                put(cId)
-                put(rId)
-                put(rcId)
-                put(JSONObject.NULL)
-                put(JSONObject.NULL)
-                put(JSONObject.NULL)
-                put(JSONObject.NULL)
-                put(JSONObject.NULL)
-                put(JSONObject.NULL)
-                put("")
-            }
-        }
+        // 2: Legacy conversation IDs abandoned - remains null/JSONObject.NULL
 
         // Static flags
         arr[6] = JSONArray().put(0)
@@ -85,7 +83,7 @@ class GeminiPayloadBuilder(
         arr[10] = 1
         arr[11] = 0
 
-        // 17: Turn Index
+        // 17: Turn Index [[0]], [[1]], etc.
         arr[IDX_TURN_INDEX] = JSONArray().put(JSONArray().put(turnIndex))
         arr[18] = 0
         arr[27] = 1
@@ -102,13 +100,17 @@ class GeminiPayloadBuilder(
         arr[67] = 0
         arr[68] = 1
 
+        // 71: Conversation continuation context [conv_id, null*6, continuation_token]
+        arr[IDX_CONVERSATION_CONTEXT] = buildConversationContext()
+
         // 79 & 80: Model routing ID and Thinking level
         arr[IDX_MODEL_ID] = modelSpec.modelId
         arr[IDX_THINKING_LEVEL] = modelSpec.thinkingLevel
 
         // Terminal flags
         arr[91] = 1
-        arr[96] = 1
+        // 96: 0 for new session (turn 0), 1 for continuing session (turn > 0)
+        arr[IDX_NEW_SESSION_FLAG] = if (turnIndex == 0) 0 else 1
         arr[98] = 1
 
         val jsonArray = JSONArray()

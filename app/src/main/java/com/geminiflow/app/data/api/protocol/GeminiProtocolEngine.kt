@@ -1,6 +1,7 @@
 package com.geminiflow.app.data.api.protocol
 
 import com.geminiflow.app.domain.model.auth.GeminiTokens
+import com.geminiflow.app.domain.model.auth.SessionData
 import com.geminiflow.app.domain.model.chat.ChatRequest
 import java.util.UUID
 import kotlin.random.Random
@@ -13,9 +14,8 @@ class GeminiProtocolEngine(
     fun buildRequest(
         request: ChatRequest,
         tokens: GeminiTokens,
-        uploads: List<Pair<String, String>> = emptyList(),
-        conversationIds: List<String> = emptyList(),
-        turnIndex: Int = 0
+        sessionData: SessionData? = null,
+        uploads: List<Pair<String, String>> = emptyList()
     ): ProtocolRequest {
         val reqUuid = UUID.randomUUID().toString().uppercase()
         val modelSpec = request.modelSpec
@@ -39,6 +39,10 @@ class GeminiProtocolEngine(
         val headers = headerBuilder.buildAllHeaders()
 
         // 3. Payload Post Data
+        val turnIndex = sessionData?.turnIndex ?: 0
+        val conversationId = sessionData?.conversationId
+        val continuationToken = sessionData?.continuationToken
+
         val payloadBuilder = GeminiPayloadBuilder(
             prompt = request.prompt,
             systemPrompt = request.systemPrompt,
@@ -46,7 +50,8 @@ class GeminiProtocolEngine(
             modelSpec = modelSpec,
             reqUuid = reqUuid,
             uploads = uploads,
-            conversationIds = conversationIds,
+            conversationId = conversationId,
+            continuationToken = continuationToken,
             turnIndex = turnIndex
         )
         val postData = payloadBuilder.buildPostData(atToken = tokens.snlm0e)

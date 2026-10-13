@@ -6,7 +6,7 @@ import com.geminiflow.app.domain.model.auth.SessionData
 import com.geminiflow.app.domain.repository.SessionRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
+import org.json.JSONObject
 
 class SessionRepositoryImpl(
     context: Context
@@ -18,22 +18,33 @@ class SessionRepositoryImpl(
     override suspend fun getSession(sessionId: String): SessionData? = withContext(Dispatchers.IO) {
         val jsonStr = prefs.getString(sessionId, null) ?: return@withContext null
         try {
-            val jsonArray = JSONArray(jsonStr)
-            val ids = mutableListOf<String>()
-            for (i in 0 until jsonArray.length()) {
-                ids.add(jsonArray.getString(i))
-            }
-            if (ids.size >= 2) {
-                return@withContext SessionData(sessionId = sessionId, conversationIds = ids)
-            }
+            val obj = JSONObject(jsonStr)
+            val conversationId = obj.optString("conversationId", "").takeIf { it.isNotEmpty() }
+            val continuationToken = obj.optString("continuationToken", "").takeIf { it.isNotEmpty() }
+            val turnIndex = obj.optInt("turnIndex", 0)
+            val updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
+
+            return@withContext SessionData(
+                sessionId = sessionId,
+                conversationId = conversationId,
+                continuationToken = continuationToken,
+                turnIndex = turnIndex,
+                updatedAt = updatedAt
+            )
         } catch (_: Exception) {
+            null
         }
-        null
     }
 
     override suspend fun saveSession(sessionData: SessionData): Unit = withContext(Dispatchers.IO) {
-        val jsonArray = JSONArray(sessionData.conversationIds)
-        prefs.edit().putString(sessionData.sessionId, jsonArray.toString()).apply()
+        val obj = JSONObject().apply {
+            put("sessionId", sessionData.sessionId)
+            put("conversationId", sessionData.conversationId ?: JSONObject.NULL)
+            put("continuationToken", sessionData.continuationToken ?: JSONObject.NULL)
+            put("turnIndex", sessionData.turnIndex)
+            put("updatedAt", sessionData.updatedAt)
+        }
+        prefs.edit().putString(sessionData.sessionId, obj.toString()).apply()
     }
 
     override suspend fun clearSession(sessionId: String): Unit = withContext(Dispatchers.IO) {

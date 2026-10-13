@@ -4,10 +4,12 @@ import com.geminiflow.app.data.api.protocol.GeminiPayloadBuilder
 import com.geminiflow.app.data.api.protocol.GeminiProtocolEngine
 import com.geminiflow.app.data.api.protocol.JspbHeaderBuilder
 import com.geminiflow.app.domain.model.auth.GeminiTokens
+import com.geminiflow.app.domain.model.auth.SessionData
 import com.geminiflow.app.domain.model.chat.ChatRequest
 import com.geminiflow.app.domain.model.chat.ModelSpec
 import com.geminiflow.app.domain.model.chat.ThinkingLevel
 import org.json.JSONArray
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -16,9 +18,10 @@ import org.junit.Test
 class GeminiProtocolEngineTest {
 
     private val testBl = "boq_gemini-web-uiserver_20261012.15_p0"
+    private val tokens = GeminiTokens(snlm0e = "TEST_SNLM0E", sid = "123456789")
 
     @Test
-    fun testJspbHeaderBuilder_structure() {
+    fun testJspbHeaderBuilder_flash() {
         val spec = ModelSpec.resolve("gemini-3.8-flash", "medium")
         val builder = JspbHeaderBuilder(
             modelSpec = spec,
@@ -46,92 +49,197 @@ class GeminiProtocolEngineTest {
     }
 
     @Test
-    fun testGeminiPayloadBuilder_structure() {
-        val spec = ModelSpec.resolve("gemini-3-pro", "high")
-        val builder = GeminiPayloadBuilder(
-            prompt = "Hello Pro",
-            systemPrompt = null,
-            language = "zh-TW",
+    fun testJspbHeaderBuilder_argon() {
+        val spec = ModelSpec.resolve("gemini4Argon", "high")
+        val builder = JspbHeaderBuilder(
             modelSpec = spec,
-            reqUuid = "REQ-UUID-PRO",
-            turnIndex = 3
+            sessionUuid = "SESSION-UUID-ARGON",
+            reqUuid = "REQ-UUID-789",
+            serverBl = testBl
         )
-        val arr = builder.buildInnerArray()
+        val headers = builder.buildAllHeaders()
+        val h525 = JSONArray(headers["x-goog-ext-525001261-jspb"])
 
-        assertEquals(99, arr.length())
-        assertEquals("Hello Pro", arr.getJSONArray(0).getString(0))
-        assertEquals("zh-TW", arr.getJSONArray(1).getString(0))
-
-        // Turn index = 3
-        assertEquals(3, arr.getJSONArray(17).getJSONArray(0).getInt(0))
-
-        // Capabilities: [4, 16, 19]
-        val caps = arr.getJSONArray(30)
-        assertEquals(3, caps.length())
-        assertEquals(4, caps.getInt(0))
-        assertEquals(16, caps.getInt(1))
-        assertEquals(19, caps.getInt(2))
-
-        assertEquals("REQ-UUID-PRO", arr.getString(59))
-        assertEquals(0, arr.getJSONArray(61).length())
-
-        // Model ID and Thinking Level
-        assertEquals(3, arr.getInt(79)) // Pro = 3
-        assertEquals(2, arr.getInt(80)) // High = 2
-
-        // End flags
-        assertEquals(1, arr.getInt(91))
-        assertEquals(1, arr.getInt(96))
-        assertEquals(1, arr.getInt(98))
+        assertEquals("95a4c0abcba24364", h525.getString(4))
+        assertEquals(8, h525.getInt(14))
+        assertEquals(2, h525.getInt(15)) // high thinking = 2
     }
 
     @Test
-    fun testProtocolEngine_flashLow() {
+    fun testTurn1_flash_thinking_low() {
+        // Turn 1: gemini3.8Flash (think mode is low) "第一次測試"
+        // New session (turn 0)
+        // model_id = 1, model_hash = "56fdd199312815e2", thinking_level = 1
+        // arr[96] = 0, arr[71] = null, arr[2] = null
         val engine = GeminiProtocolEngine(serverBl = testBl)
-        val req = ChatRequest(prompt = "第1次測試", model = "gemini-3.8-flash", thinking = ThinkingLevel.LOW)
-        val tokens = GeminiTokens(snlm0e = "TEST_SNLM0E", sid = "123456789")
-
-        val proto = engine.buildRequest(req, tokens, turnIndex = 0)
-
-        assertEquals(testBl, proto.params["bl"])
-        assertEquals("zh-TW", proto.params["hl"])
-        assertEquals("123456789", proto.params["f.sid"])
-        assertEquals("TEST_SNLM0E", proto.postData["at"])
+        val req = ChatRequest(prompt = "第一次測試", model = "gemini-3.8-flash", thinking = ThinkingLevel.LOW)
+        val proto = engine.buildRequest(req, tokens, sessionData = null)
 
         val h525 = JSONArray(proto.headers["x-goog-ext-525001261-jspb"])
+        val fReq = JSONArray(proto.postData["f.req"])
+        val inner = JSONArray(fReq.getString(1))
+
+        assertEquals("56fdd199312815e2", h525.getString(4))
         assertEquals(1, h525.getInt(14))
-        assertEquals(1, h525.getInt(15)) // Low = 1
+        assertEquals(1, h525.getInt(15))
 
-        val fReq = JSONArray(proto.postData["f.req"])
-        val inner = JSONArray(fReq.getString(1))
         assertEquals(99, inner.length())
+        assertEquals("第一次測試", inner.getJSONArray(0).getString(0))
+        assertTrue(inner.isNull(2))
+        assertEquals(0, inner.getJSONArray(17).getJSONArray(0).getInt(0))
+        assertTrue(inner.isNull(71))
         assertEquals(1, inner.getInt(79))
-        assertEquals(1, inner.getInt(80)) // Low = 1
+        assertEquals(1, inner.getInt(80))
+        assertEquals(0, inner.getInt(96))
     }
 
     @Test
-    fun testProtocolEngine_proHighWithConversationContext() {
+    fun testTurn2_pro_thinking_low() {
+        // Turn 2: gemini3Pro (think mode is low) "第二次測試"
+        // Continuing session (turn 1)
+        // model_id = 3, model_hash = "e6fa609c3fa255c0", thinking_level = 1
+        // arr[96] = 1, arr[71] = [conv_id, null*6, token]
         val engine = GeminiProtocolEngine(serverBl = testBl)
-        val req = ChatRequest(prompt = "延續對話", model = "gemini-3-pro", thinking = ThinkingLevel.HIGH)
-        val tokens = GeminiTokens(snlm0e = "TEST_SNLM0E", sid = "123456789")
-        val convIds = listOf("c_test_conv", "r_test_resp", "rc_test_choice")
-
-        val proto = engine.buildRequest(req, tokens, conversationIds = convIds, turnIndex = 2)
+        val session = SessionData(
+            sessionId = "sess_1",
+            conversationId = "c_fb6da9be329112e7",
+            continuationToken = "AwAAAAAAAAAQANM7mBjXKZS5cPttExo",
+            turnIndex = 1
+        )
+        val req = ChatRequest(prompt = "第二次測試", model = "gemini-3-pro", thinking = ThinkingLevel.LOW)
+        val proto = engine.buildRequest(req, tokens, sessionData = session)
 
         val h525 = JSONArray(proto.headers["x-goog-ext-525001261-jspb"])
-        assertEquals(3, h525.getInt(14)) // Pro = 3
-        assertEquals(2, h525.getInt(15)) // High = 2
-
         val fReq = JSONArray(proto.postData["f.req"])
         val inner = JSONArray(fReq.getString(1))
+
+        assertEquals("e6fa609c3fa255c0", h525.getString(4))
+        assertEquals(3, h525.getInt(14))
+        assertEquals(1, h525.getInt(15))
+
+        assertEquals("第二次測試", inner.getJSONArray(0).getString(0))
+        assertTrue(inner.isNull(2))
+        assertEquals(1, inner.getJSONArray(17).getJSONArray(0).getInt(0))
+
+        val ctx = inner.getJSONArray(71)
+        assertEquals(8, ctx.length())
+        assertEquals("c_fb6da9be329112e7", ctx.getString(0))
+        for (i in 1..6) assertTrue(ctx.isNull(i))
+        assertEquals("AwAAAAAAAAAQANM7mBjXKZS5cPttExo", ctx.getString(7))
 
         assertEquals(3, inner.getInt(79))
-        assertEquals(2, inner.getInt(80))
+        assertEquals(1, inner.getInt(80))
+        assertEquals(1, inner.getInt(96))
+    }
+
+    @Test
+    fun testTurn3_argon_thinking_low() {
+        // Turn 3: gemini4Argon (think mode is low) "第三次測試"
+        // Continuing session (turn 2)
+        // model_id = 8, model_hash = "95a4c0abcba24364", thinking_level = 1
+        // arr[96] = 1, arr[71] = [conv_id, null*6, token]
+        val engine = GeminiProtocolEngine(serverBl = testBl)
+        val session = SessionData(
+            sessionId = "sess_1",
+            conversationId = "c_fb6da9be329112e7",
+            continuationToken = "AwAAAAAAAAAQANM7mBjXKZQ5aABuExo",
+            turnIndex = 2
+        )
+        val req = ChatRequest(prompt = "第三次測試", model = "gemini4Argon", thinking = ThinkingLevel.LOW)
+        val proto = engine.buildRequest(req, tokens, sessionData = session)
+
+        val h525 = JSONArray(proto.headers["x-goog-ext-525001261-jspb"])
+        val fReq = JSONArray(proto.postData["f.req"])
+        val inner = JSONArray(fReq.getString(1))
+
+        assertEquals("95a4c0abcba24364", h525.getString(4))
+        assertEquals(8, h525.getInt(14))
+        assertEquals(1, h525.getInt(15))
+
+        assertEquals("第三次測試", inner.getJSONArray(0).getString(0))
+        assertTrue(inner.isNull(2))
         assertEquals(2, inner.getJSONArray(17).getJSONArray(0).getInt(0))
 
-        val convBlock = inner.getJSONArray(2)
-        assertEquals("c_test_conv", convBlock.getString(0))
-        assertEquals("r_test_resp", convBlock.getString(1))
-        assertEquals("rc_test_choice", convBlock.getString(2))
+        val ctx = inner.getJSONArray(71)
+        assertEquals("c_fb6da9be329112e7", ctx.getString(0))
+        assertEquals("AwAAAAAAAAAQANM7mBjXKZQ5aABuExo", ctx.getString(7))
+
+        assertEquals(8, inner.getInt(79))
+        assertEquals(1, inner.getInt(80))
+        assertEquals(1, inner.getInt(96))
+    }
+
+    @Test
+    fun testTurn4_argon_thinking_medium() {
+        // Turn 4: gemini4Argon (think mode is medium) "第四次測試"
+        // Continuing session (turn 3)
+        // model_id = 8, model_hash = "95a4c0abcba24364", thinking_level = 4
+        // arr[96] = 1, arr[71] = [conv_id, null*6, token]
+        val engine = GeminiProtocolEngine(serverBl = testBl)
+        val session = SessionData(
+            sessionId = "sess_1",
+            conversationId = "c_fb6da9be329112e7",
+            continuationToken = "AwAAAAAAAAAQANM7mBjXKZSp5ANuExo",
+            turnIndex = 3
+        )
+        val req = ChatRequest(prompt = "第四次測試", model = "gemini4Argon", thinking = ThinkingLevel.MEDIUM)
+        val proto = engine.buildRequest(req, tokens, sessionData = session)
+
+        val h525 = JSONArray(proto.headers["x-goog-ext-525001261-jspb"])
+        val fReq = JSONArray(proto.postData["f.req"])
+        val inner = JSONArray(fReq.getString(1))
+
+        assertEquals("95a4c0abcba24364", h525.getString(4))
+        assertEquals(8, h525.getInt(14))
+        assertEquals(4, h525.getInt(15)) // medium thinking = 4
+
+        assertEquals("第四次測試", inner.getJSONArray(0).getString(0))
+        assertTrue(inner.isNull(2))
+        assertEquals(3, inner.getJSONArray(17).getJSONArray(0).getInt(0))
+
+        val ctx = inner.getJSONArray(71)
+        assertEquals("c_fb6da9be329112e7", ctx.getString(0))
+        assertEquals("AwAAAAAAAAAQANM7mBjXKZSp5ANuExo", ctx.getString(7))
+
+        assertEquals(8, inner.getInt(79))
+        assertEquals(4, inner.getInt(80)) // medium thinking = 4
+        assertEquals(1, inner.getInt(96))
+    }
+
+    @Test
+    fun testTurn5_argon_thinking_high() {
+        // Turn 5: gemini4Argon (think mode is high) "第五次測試"
+        // Continuing session (turn 4)
+        // model_id = 8, model_hash = "95a4c0abcba24364", thinking_level = 2
+        // arr[96] = 1, arr[71] = [conv_id, null*6, token]
+        val engine = GeminiProtocolEngine(serverBl = testBl)
+        val session = SessionData(
+            sessionId = "sess_1",
+            conversationId = "c_fb6da9be329112e7",
+            continuationToken = "AwAAAAAAAAAQANM7mBjXKZTJdQhuExo",
+            turnIndex = 4
+        )
+        val req = ChatRequest(prompt = "第五次測試", model = "gemini4Argon", thinking = ThinkingLevel.HIGH)
+        val proto = engine.buildRequest(req, tokens, sessionData = session)
+
+        val h525 = JSONArray(proto.headers["x-goog-ext-525001261-jspb"])
+        val fReq = JSONArray(proto.postData["f.req"])
+        val inner = JSONArray(fReq.getString(1))
+
+        assertEquals("95a4c0abcba24364", h525.getString(4))
+        assertEquals(8, h525.getInt(14))
+        assertEquals(2, h525.getInt(15)) // high thinking = 2
+
+        assertEquals("第五次測試", inner.getJSONArray(0).getString(0))
+        assertTrue(inner.isNull(2))
+        assertEquals(4, inner.getJSONArray(17).getJSONArray(0).getInt(0))
+
+        val ctx = inner.getJSONArray(71)
+        assertEquals("c_fb6da9be329112e7", ctx.getString(0))
+        assertEquals("AwAAAAAAAAAQANM7mBjXKZTJdQhuExo", ctx.getString(7))
+
+        assertEquals(8, inner.getInt(79))
+        assertEquals(2, inner.getInt(80)) // high thinking = 2
+        assertEquals(1, inner.getInt(96))
     }
 }

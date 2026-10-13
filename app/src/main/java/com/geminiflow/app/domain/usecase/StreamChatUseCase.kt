@@ -57,17 +57,24 @@ class StreamChatUseCase(
         cookies: Map<String, String>,
         sessionData: SessionData?
     ): Flow<ChatResponseChunk> = flow {
-        chatRepository.streamGenerate(request, tokens, cookies, sessionData).collect { chunk ->
-            if (chunk.sessionIds != null && !request.sessionId.isNullOrBlank()) {
-                val newSession = SessionData(
-                    sessionId = request.sessionId,
-                    conversationIds = chunk.sessionIds
-                )
-                sessionRepository.saveSession(newSession)
+        var currentSession = sessionData
+        chatRepository.streamGenerate(request, tokens, cookies, currentSession).collect { chunk ->
+            if (chunk.conversationId != null && !request.sessionId.isNullOrBlank()) {
+                val baseSession = currentSession ?: SessionData(sessionId = request.sessionId)
+                val updatedSession = baseSession.copy(conversationId = chunk.conversationId)
+                    .advanceTurn(chunk.continuationToken)
+                currentSession = updatedSession
+                sessionRepository.saveSession(updatedSession)
             }
 
-            if (!chunk.text.isNullOrEmpty() || chunk.sessionIds != null) {
-                emit(ChatResponseChunk(text = chunk.text, sessionIds = chunk.sessionIds))
+            if (!chunk.text.isNullOrEmpty() || chunk.conversationId != null) {
+                emit(
+                    ChatResponseChunk(
+                        text = chunk.text,
+                        conversationId = chunk.conversationId,
+                        continuationToken = chunk.continuationToken
+                    )
+                )
             }
 
             if (chunk.exportMetadata != null) {

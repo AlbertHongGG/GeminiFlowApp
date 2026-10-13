@@ -9,6 +9,7 @@ data class ChatResponseChunk(
     val text: String? = null,
     val imageUrl: String? = null,
     val mediaAsset: MediaAsset? = null,
-    val sessionIds: List<String>? = null,
+    val conversationId: String? = null,
+    val continuationToken: String? = null,
     val exportMetadata: ImageExportMetadata? = null
 )

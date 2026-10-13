@@ -18,56 +18,97 @@ class GeminiStreamParser(
 
     data class TextDeltaResult(
         val delta: String?,
-        val sessionIds: List<String>?
+        val conversationId: String? = null,
+        val continuationToken: String? = null
     )
 
-    fun extractTextDelta(rawLine: String): TextDeltaResult {
-        val trimmed = rawLine.trim()
-        if (trimmed.isEmpty()) return TextDeltaResult(null, null)
+    fun extractConversationContext(responsePart: JSONArray): Pair<String?, String?> {
+        var convId: String? = null
+        var continuationToken: String? = null
 
-        val lineArray = try {
-            JSONArray(trimmed)
-        } catch (_: Exception) {
-            return TextDeltaResult(null, null)
-        }
-
-        if (lineArray.length() == 0) return TextDeltaResult(null, null)
-
-        val firstItem = lineArray.optJSONArray(0) ?: return TextDeltaResult(null, null)
-        if (firstItem.length() < 3) return TextDeltaResult(null, null)
-
-        val innerJsonStr = firstItem.optString(2, null) ?: return TextDeltaResult(null, null)
-        val responsePart = try {
-            JSONArray(innerJsonStr)
-        } catch (_: Exception) {
-            return TextDeltaResult(null, null)
-        }
-
-        // 提取會話 Session IDs (c_...)
-        var sessionIds: List<String>? = null
         try {
             if (responsePart.length() > 1) {
-                val idsArray = responsePart.optJSONArray(1)
-                if (idsArray != null && idsArray.length() > 0) {
-                    val firstId = idsArray.optString(0, "")
-                    if (firstId.startsWith("c_")) {
-                        val list = mutableListOf<String>()
-                        for (i in 0 until idsArray.length()) {
-                            list.add(idsArray.optString(i))
+                val part1 = responsePart.optJSONArray(1)
+                if (part1 != null && part1.length() > 0) {
+                    val first = part1.optString(0, "")
+                    if (first.startsWith("c_")) {
+                        convId = first
+                        for (i in 0 until part1.length()) {
+                            val item = part1.optString(i, "")
+                            if (item.length >= 28 && item.startsWith("Aw")) {
+                                continuationToken = item
+                                break
+                            }
                         }
-                        sessionIds = list
                     }
                 }
             }
         } catch (_: Exception) {
         }
 
+        if (convId != null && continuationToken == null) {
+            continuationToken = findContinuationTokenRecursive(responsePart)
+        }
+
+        return Pair(convId, continuationToken)
+    }
+
+    private fun findContinuationTokenRecursive(element: Any?): String? {
+        when (element) {
+            is String -> {
+                if (element.length >= 28 && element.startsWith("Aw")) {
+                    return element
+                }
+            }
+            is JSONArray -> {
+                for (i in 0 until element.length()) {
+                    val found = findContinuationTokenRecursive(element.opt(i))
+                    if (found != null) return found
+                }
+            }
+            is org.json.JSONObject -> {
+                val keys = element.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    val found = findContinuationTokenRecursive(element.opt(key))
+                    if (found != null) return found
+                }
+            }
+        }
+        return null
+    }
+
+    fun extractTextDelta(rawLine: String): TextDeltaResult {
+        val trimmed = rawLine.trim()
+        if (trimmed.isEmpty()) return TextDeltaResult(null, null, null)
+
+        val lineArray = try {
+            JSONArray(trimmed)
+        } catch (_: Exception) {
+            return TextDeltaResult(null, null, null)
+        }
+
+        if (lineArray.length() == 0) return TextDeltaResult(null, null, null)
+
+        val firstItem = lineArray.optJSONArray(0) ?: return TextDeltaResult(null, null, null)
+        if (firstItem.length() < 3) return TextDeltaResult(null, null, null)
+
+        val innerJsonStr = firstItem.optString(2, null) ?: return TextDeltaResult(null, null, null)
+        val responsePart = try {
+            JSONArray(innerJsonStr)
+        } catch (_: Exception) {
+            return TextDeltaResult(null, null, null)
+        }
+
+        // 提取會話 Session ID (c_...) 與續接 Token (Aw...)
+        val (convId, contToken) = extractConversationContext(responsePart)
+
         // 提取累積正文內容並嚴格過濾思考歷程與內部圖片網址
-        val rawContent = extractContent(responsePart) ?: return TextDeltaResult(null, sessionIds)
+        val rawContent = extractContent(responsePart) ?: return TextDeltaResult(null, convId, contToken)
         val content = sanitizeOutputText(rawContent)
 
         if (content.isEmpty()) {
-            return TextDeltaResult(null, sessionIds)
+            return TextDeltaResult(null, convId, contToken)
         }
 
         val delta = if (lastContent.isNotEmpty() && content.startsWith(lastContent)) {
@@ -78,7 +119,7 @@ class GeminiStreamParser(
         lastContent = content
 
         val finalDelta = if (delta.isBlank()) null else delta
-        return TextDeltaResult(finalDelta, sessionIds)
+        return TextDeltaResult(finalDelta, convId, contToken)
     }
 
     /**

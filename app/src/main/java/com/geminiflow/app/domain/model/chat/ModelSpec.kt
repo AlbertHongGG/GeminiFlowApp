@@ -2,12 +2,17 @@ package com.geminiflow.app.domain.model.chat
 
 enum class ModelFamily(val modelId: Int, val modelHash: String) {
     FLASH(1, "56fdd199312815e2"),
-    PRO(3, "e6fa609c3fa255c0");
+    PRO(3, "e6fa609c3fa255c0"),
+    ARGON(8, "95a4c0abcba24364");
 
     companion object {
         fun fromModelName(name: String?): ModelFamily {
             val lower = name?.trim()?.lowercase() ?: ""
-            return if (lower.contains("pro")) PRO else FLASH
+            return when {
+                listOf("argon", "gemini-4", "gemini4").any { lower.contains(it) } -> ARGON
+                lower.contains("pro") -> PRO
+                else -> FLASH
+            }
         }
     }
 }

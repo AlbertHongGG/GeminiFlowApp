@@ -103,8 +103,6 @@ class ChatRepositoryImpl(
         sessionData: SessionData?
     ): Flow<ChatResponseChunk> = flow {
         val cookiesHeader = cookies.entries.joinToString("; ") { "${it.key}=${it.value}" }
-        val conversationIds = sessionData?.conversationIds ?: emptyList()
-        val turnIndex = if (conversationIds.isNotEmpty()) 1 else 0
 
         var uploads = emptyList<Pair<String, String>>()
         if (request.images.isNotEmpty()) {
@@ -114,9 +112,8 @@ class ChatRepositoryImpl(
         val protoReq = protocolEngine.buildRequest(
             request = request,
             tokens = tokens,
-            uploads = uploads,
-            conversationIds = conversationIds,
-            turnIndex = turnIndex
+            sessionData = sessionData,
+            uploads = uploads
         )
 
         val urlBuilder = GeminiConfig.GEMINI_REQUEST_URL.toHttpUrlOrNull()?.newBuilder()
@@ -175,8 +172,9 @@ class ChatRepositoryImpl(
             ?: throw NetworkException("Gemini API 回應內容為空")
 
         val parser = GeminiStreamParser()
-        var emittedSessionIds = false
-        var latestSessionIds: List<String>? = null
+        var emittedSession = false
+        var latestConversationId: String? = sessionData?.conversationId
+        var latestContinuationToken: String? = sessionData?.continuationToken
         var latestExportMetadata: com.geminiflow.app.domain.model.export.ImageExportMetadata? = null
 
         val reader = BufferedReader(InputStreamReader(responseBody.byteStream(), Charsets.UTF_8))
@@ -191,14 +189,23 @@ class ChatRepositoryImpl(
                     latestExportMetadata = exportMeta
                 }
 
-                val (delta, sessionIds) = parser.extractTextDelta(currentLine)
+                val (delta, convId, contToken) = parser.extractTextDelta(currentLine)
 
-                if (sessionIds != null) {
-                    latestSessionIds = sessionIds
-                    if (!emittedSessionIds) {
-                        emittedSessionIds = true
-                        emit(ChatResponseChunk(sessionIds = sessionIds))
-                    }
+                if (convId != null) {
+                    latestConversationId = convId
+                }
+                if (contToken != null) {
+                    latestContinuationToken = contToken
+                }
+
+                if (convId != null && !emittedSession) {
+                    emittedSession = true
+                    emit(
+                        ChatResponseChunk(
+                            conversationId = convId,
+                            continuationToken = latestContinuationToken
+                        )
+                    )
                 }
 
                 if (!delta.isNullOrEmpty()) {
@@ -210,11 +217,21 @@ class ChatRepositoryImpl(
             response.close()
         }
 
+        if (!emittedSession && (latestConversationId != null || latestContinuationToken != null)) {
+            emit(
+                ChatResponseChunk(
+                    conversationId = latestConversationId,
+                    continuationToken = latestContinuationToken
+                )
+            )
+        }
+
         if (latestExportMetadata != null) {
             emit(
                 ChatResponseChunk(
                     imageUrl = latestExportMetadata.previewUrl,
-                    sessionIds = latestSessionIds,
+                    conversationId = latestConversationId,
+                    continuationToken = latestContinuationToken,
                     exportMetadata = latestExportMetadata
                 )
             )

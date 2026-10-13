@@ -27,6 +27,14 @@ data class PlaygroundModelSpec(
                 shortName = "Pro",
                 tag = "旗艦 · 生圖",
                 isImageCapable = true
+            ),
+            PlaygroundModelSpec(
+                family = ModelFamily.ARGON,
+                id = "gemini4Argon",
+                displayName = "Gemini 4 Argon",
+                shortName = "4 Argon",
+                tag = "次世代旗艦",
+                isImageCapable = false
             )
         )
 

@@ -20,11 +20,19 @@ class ModelSpecTest {
         assertEquals(ModelFamily.PRO, ModelFamily.fromModelName("pro"))
         assertEquals(ModelFamily.PRO, ModelFamily.fromModelName("gemini-pro-vision"))
 
+        assertEquals(ModelFamily.ARGON, ModelFamily.fromModelName("gemini4Argon"))
+        assertEquals(ModelFamily.ARGON, ModelFamily.fromModelName("argon"))
+        assertEquals(ModelFamily.ARGON, ModelFamily.fromModelName("gemini-4"))
+        assertEquals(ModelFamily.ARGON, ModelFamily.fromModelName("gemini4"))
+
         assertEquals(1, ModelFamily.FLASH.modelId)
         assertEquals("56fdd199312815e2", ModelFamily.FLASH.modelHash)
 
         assertEquals(3, ModelFamily.PRO.modelId)
         assertEquals("e6fa609c3fa255c0", ModelFamily.PRO.modelHash)
+
+        assertEquals(8, ModelFamily.ARGON.modelId)
+        assertEquals("95a4c0abcba24364", ModelFamily.ARGON.modelHash)
     }
 
     @Test
@@ -69,18 +77,34 @@ class ModelSpecTest {
         assertEquals(ThinkingLevel.HIGH, spec3.thinking)
         assertEquals(3, spec3.modelId)
         assertEquals(2, spec3.thinkingLevel)
+
+        val spec4 = ModelSpec.resolve("gemini4Argon", "medium")
+        assertEquals(ModelFamily.ARGON, spec4.family)
+        assertEquals(ThinkingLevel.MEDIUM, spec4.thinking)
+        assertEquals(8, spec4.modelId)
+        assertEquals(4, spec4.thinkingLevel)
     }
 
     @Test
     fun testChatRequest_modelSpecIntegration() {
-        val req = ChatRequest(
+        val req1 = ChatRequest(
             prompt = "測試",
             model = "gemini-3-pro",
             thinking = ThinkingLevel.HIGH
         )
-        assertEquals(ModelFamily.PRO, req.modelSpec.family)
-        assertEquals(ThinkingLevel.HIGH, req.modelSpec.thinking)
-        assertEquals(3, req.modelSpec.modelId)
-        assertEquals(2, req.modelSpec.thinkingLevel)
+        assertEquals(ModelFamily.PRO, req1.modelSpec.family)
+        assertEquals(ThinkingLevel.HIGH, req1.modelSpec.thinking)
+        assertEquals(3, req1.modelSpec.modelId)
+        assertEquals(2, req1.modelSpec.thinkingLevel)
+
+        val req2 = ChatRequest(
+            prompt = "測試Argon",
+            model = "gemini4Argon",
+            thinking = ThinkingLevel.MEDIUM
+        )
+        assertEquals(ModelFamily.ARGON, req2.modelSpec.family)
+        assertEquals(ThinkingLevel.MEDIUM, req2.modelSpec.thinking)
+        assertEquals(8, req2.modelSpec.modelId)
+        assertEquals(4, req2.modelSpec.thinkingLevel)
     }
 }

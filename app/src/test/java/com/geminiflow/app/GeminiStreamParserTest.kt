@@ -11,17 +11,27 @@ class GeminiStreamParserTest {
     @Test
     fun testExtractTextDelta() {
         val parser = GeminiStreamParser()
-        val mockLine = """[["wrb.fr",null,"[null,[\"c_12345\"],null,null,[null,null,null,null,[[\"test_id\",[\"Hello world!\"],null,null,null,null,null,null,null,null,[]]]]]"]]"""
+        val mockLine = """[["wrb.fr",null,"[null,[\"c_12345\",null,null,null,null,null,null,\"AwAAAAAAAAAQANM7mBjXKZS5cPttExo\"],null,null,[null,null,null,null,[[\"test_id\",[\"Hello world!\"],null,null,null,null,null,null,null,null,[]]]]]"]]"""
 
         val result = parser.extractTextDelta(mockLine)
         assertEquals("Hello world!", result.delta)
-        assertNotNull(result.sessionIds)
-        assertEquals("c_12345", result.sessionIds?.first())
+        assertEquals("c_12345", result.conversationId)
+        assertEquals("AwAAAAAAAAAQANM7mBjXKZS5cPttExo", result.continuationToken)
 
         // Next delta with same prefix
-        val nextMockLine = """[["wrb.fr",null,"[null,[\"c_12345\"],null,null,[null,null,null,null,[[\"test_id\",[\"Hello world! How are you?\"],null,null,null,null,null,null,null,null,[]]]]]"]]"""
+        val nextMockLine = """[["wrb.fr",null,"[null,[\"c_12345\",null,null,null,null,null,null,\"AwAAAAAAAAAQANM7mBjXKZS5cPttExo\"],null,null,[null,null,null,null,[[\"test_id\",[\"Hello world! How are you?\"],null,null,null,null,null,null,null,null,[]]]]]"]]"""
         val nextResult = parser.extractTextDelta(nextMockLine)
         assertEquals(" How are you?", nextResult.delta)
+    }
+
+    @Test
+    fun testExtractConversationContext_standalone() {
+        val parser = GeminiStreamParser()
+        val mockLine = """[["wrb.fr",null,"[null,[\"c_fb6da9be329112e7\",null,null,null,null,null,null,\"AwAAAAAAAAAQANM7mBjXKZS5cPttExo\"],null,null,[null,null,null,null,[[\"rc_test\",[\"回覆文字\"],null,null,null,null,null,null,null,null,[]]]]]"]]"""
+        val result = parser.extractTextDelta(mockLine)
+        assertEquals("c_fb6da9be329112e7", result.conversationId)
+        assertEquals("AwAAAAAAAAAQANM7mBjXKZS5cPttExo", result.continuationToken)
+        assertEquals("回覆文字", result.delta)
     }
 
 
