@@ -1,5 +1,10 @@
 package com.geminiflow.app.presentation.features.playground
 
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -29,18 +35,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.flow.distinctUntilChanged
 import com.geminiflow.app.domain.model.chat.ThinkingLevel
 import com.geminiflow.app.presentation.components.ImmersiveScaffold
 import com.geminiflow.app.presentation.features.playground.components.ModelSelectionBottomSheet
 import com.geminiflow.app.presentation.features.playground.components.PlaygroundChatBubble
 import com.geminiflow.app.presentation.features.playground.components.PlaygroundInputDock
 import com.geminiflow.app.presentation.features.playground.components.TemplateSelectionBottomSheet
+import com.geminiflow.app.presentation.features.playground.components.rememberPlaygroundScrollState
 import com.geminiflow.app.presentation.features.playground.model.PlaygroundModelSpec
 import com.geminiflow.app.presentation.theme.AppColors
 
@@ -50,6 +59,7 @@ fun PlaygroundScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
+    val scrollState = rememberPlaygroundScrollState(lazyListState = listState)
 
     var showModelSheet by remember { mutableStateOf(false) }
     var showTemplateSheet by remember { mutableStateOf(false) }
@@ -58,10 +68,28 @@ fun PlaygroundScreen(
         PlaygroundModelSpec.findByFamily(uiState.selectedFamily)
     }
 
-    LaunchedEffect(uiState.playgroundMessages.size, uiState.playgroundMessages.lastOrNull()?.text?.length) {
+    // 監聽訊息增量與串流內容變更：若處於貼底模式，瞬間精準同步至底端錨點
+    val lastMessage = uiState.playgroundMessages.lastOrNull()
+    LaunchedEffect(
+        uiState.playgroundMessages.size,
+        lastMessage?.text?.length,
+        lastMessage?.mediaAssets?.size,
+        lastMessage?.isStreaming
+    ) {
         if (uiState.playgroundMessages.isNotEmpty()) {
-            listState.animateScrollToItem(uiState.playgroundMessages.size - 1)
+            scrollState.scrollToBottomImmediate()
         }
+    }
+
+    // 監聽視口高度變更（如軟鍵盤彈出或收起）：若貼底中，維持釘在最新輸出
+    LaunchedEffect(scrollState) {
+        snapshotFlow { listState.layoutInfo.viewportSize }
+            .distinctUntilChanged()
+            .collect {
+                if (scrollState.autoScrollEnabled && uiState.playgroundMessages.isNotEmpty()) {
+                    scrollState.scrollToBottomImmediate()
+                }
+            }
     }
 
     if (showModelSheet) {
@@ -158,7 +186,10 @@ fun PlaygroundScreen(
 
                     if (uiState.playgroundMessages.isNotEmpty()) {
                         IconButton(
-                            onClick = { viewModel.clearPlaygroundChat() },
+                            onClick = {
+                                viewModel.clearPlaygroundChat()
+                                scrollState.reset()
+                            },
                             modifier = Modifier
                                 .size(38.dp)
                                 .background(Color(0xFFF1F5F9), CircleShape)
@@ -194,8 +225,36 @@ fun PlaygroundScreen(
                                     onRetryMedia = { assetId -> viewModel.retryMediaDownload(message.id, assetId) }
                                 )
                             }
-                            item {
-                                Spacer(modifier = Modifier.height(10.dp))
+                            item(key = "bottom_anchor") {
+                                Spacer(modifier = Modifier.height(14.dp))
+                            }
+                        }
+
+                        // 懸浮「回到底部」微型控制按鈕：離開底部時平滑浮現
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = !scrollState.isAtBottom,
+                            enter = fadeIn() + scaleIn(),
+                            exit = fadeOut() + scaleOut(),
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(end = 16.dp, bottom = 12.dp)
+                        ) {
+                            Surface(
+                                onClick = { scrollState.requestScrollToBottom() },
+                                modifier = Modifier.size(38.dp),
+                                shape = CircleShape,
+                                color = Color.White,
+                                shadowElevation = 4.dp,
+                                border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowDown,
+                                        contentDescription = "回到底部",
+                                        tint = Color(0xFF0F172A),
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -207,7 +266,10 @@ fun PlaygroundScreen(
                     currentModelSpec = currentModelSpec,
                     currentThinking = uiState.selectedThinking,
                     isGenerating = uiState.isGenerating,
-                    onSend = { viewModel.sendPlaygroundPrompt() },
+                    onSend = {
+                        viewModel.sendPlaygroundPrompt()
+                        scrollState.onUserSendMessage()
+                    },
                     onCancelGeneration = { viewModel.cancelPlaygroundGeneration() },
                     onOpenModelSheet = { showModelSheet = true },
                     onOpenTemplates = { showTemplateSheet = true }
