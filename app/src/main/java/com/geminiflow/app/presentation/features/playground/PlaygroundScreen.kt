@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.flow.distinctUntilChanged
 import com.geminiflow.app.domain.model.chat.ThinkingLevel
 import com.geminiflow.app.presentation.components.ImmersiveScaffold
+import com.geminiflow.app.presentation.components.gallery.GalleryPickerBottomSheet
 import com.geminiflow.app.presentation.features.playground.components.ModelSelectionBottomSheet
 import com.geminiflow.app.presentation.features.playground.components.PlaygroundChatBubble
 import com.geminiflow.app.presentation.features.playground.components.PlaygroundInputDock
@@ -53,6 +54,7 @@ import com.geminiflow.app.presentation.features.playground.components.rememberPl
 import com.geminiflow.app.presentation.features.playground.model.PlaygroundModelSpec
 import com.geminiflow.app.presentation.theme.AppColors
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun PlaygroundScreen(
     viewModel: PlaygroundViewModel
@@ -63,6 +65,7 @@ fun PlaygroundScreen(
 
     var showModelSheet by remember { mutableStateOf(false) }
     var showTemplateSheet by remember { mutableStateOf(false) }
+    var showGallerySheet by remember { mutableStateOf(false) }
 
     val currentModelSpec = remember(uiState.selectedFamily) {
         PlaygroundModelSpec.findByFamily(uiState.selectedFamily)
@@ -108,6 +111,15 @@ fun PlaygroundScreen(
                 viewModel.updatePromptInput(prompt)
             },
             onDismiss = { showTemplateSheet = false }
+        )
+    }
+
+    if (showGallerySheet) {
+        GalleryPickerBottomSheet(
+            onDismiss = { showGallerySheet = false },
+            onConfirm = { items ->
+                viewModel.addSelectedImages(items)
+            }
         )
     }
 
@@ -265,6 +277,8 @@ fun PlaygroundScreen(
                     onInputChange = { viewModel.updatePromptInput(it) },
                     currentModelSpec = currentModelSpec,
                     currentThinking = uiState.selectedThinking,
+                    selectedImages = uiState.selectedImages,
+                    onRemoveImage = { viewModel.removeSelectedImage(it) },
                     isGenerating = uiState.isGenerating,
                     onSend = {
                         viewModel.sendPlaygroundPrompt()
@@ -272,7 +286,8 @@ fun PlaygroundScreen(
                     },
                     onCancelGeneration = { viewModel.cancelPlaygroundGeneration() },
                     onOpenModelSheet = { showModelSheet = true },
-                    onOpenTemplates = { showTemplateSheet = true }
+                    onOpenTemplates = { showTemplateSheet = true },
+                    onOpenGallery = { showGallerySheet = true }
                 )
             }
         }

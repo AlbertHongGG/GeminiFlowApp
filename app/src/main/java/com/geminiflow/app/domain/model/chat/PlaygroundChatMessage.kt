@@ -14,6 +14,7 @@ data class PlaygroundChatMessage(
     val isUser: Boolean,
     val text: String,
     val mediaAssets: List<MediaAsset> = emptyList(),
+    val userImageUris: List<android.net.Uri> = emptyList(),
     val isStreaming: Boolean = false,
     val deliveryState: MessageDeliveryState = if (isStreaming) MessageDeliveryState.STREAMING else MessageDeliveryState.SUCCESS,
     val errorMessage: String? = null,

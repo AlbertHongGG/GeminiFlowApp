@@ -1,12 +1,20 @@
 package com.geminiflow.app.presentation.features.playground.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -14,6 +22,8 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -21,7 +31,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -33,12 +45,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.geminiflow.app.domain.model.chat.ThinkingLevel
+import com.geminiflow.app.domain.model.gallery.GalleryMediaItem
 import com.geminiflow.app.presentation.features.playground.model.PlaygroundModelSpec
 import com.geminiflow.app.presentation.theme.AppColors
 
@@ -48,11 +65,14 @@ fun PlaygroundInputDock(
     onInputChange: (String) -> Unit,
     currentModelSpec: PlaygroundModelSpec,
     currentThinking: ThinkingLevel = ThinkingLevel.LOW,
+    selectedImages: List<GalleryMediaItem> = emptyList(),
+    onRemoveImage: (GalleryMediaItem) -> Unit = {},
     isGenerating: Boolean,
     onSend: () -> Unit,
     onCancelGeneration: () -> Unit,
     onOpenModelSheet: () -> Unit,
     onOpenTemplates: () -> Unit,
+    onOpenGallery: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -74,6 +94,57 @@ fun PlaygroundInputDock(
                 .navigationBarsPadding()
                 .padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 12.dp)
         ) {
+            // 已選取圖片預覽列 (橫向滾動縮圖卡片，帶右上角刪除按鈕)
+            AnimatedVisibility(
+                visible = selectedImages.isNotEmpty(),
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(selectedImages, key = { it.id }) { item ->
+                        Box(
+                            modifier = Modifier.size(60.dp)
+                        ) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(item.uri)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = item.displayName,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(12.dp))
+                            )
+
+                            // 右上角微型圓形移除按鈕
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(3.dp)
+                                    .size(18.dp)
+                                    .background(Color.Black.copy(alpha = 0.65f), CircleShape)
+                                    .clickable { onRemoveImage(item) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "移除圖片",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -82,8 +153,8 @@ fun PlaygroundInputDock(
             ) {
                 if (input.isEmpty()) {
                     Text(
-                        text = "問問 GeminiFlow...",
-                        fontSize = 16.sp,
+                        text = if (selectedImages.isNotEmpty()) "為相片補充問題... (直接按發送也能分析)" else "問問 GeminiFlow...",
+                        fontSize = 15.sp,
                         color = AppColors.textSecondaryLight,
                         modifier = Modifier.padding(start = 2.dp, top = 2.dp)
                     )
@@ -111,19 +182,40 @@ fun PlaygroundInputDock(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(
-                    onClick = onOpenTemplates,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(Color.Transparent)
+                // 左側功能按鈕區：範本按鈕 (+) 與相簿選擇按鈕 (相片圖示)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "擴充工具與範本",
-                        tint = Color(0xFF475569),
-                        modifier = Modifier.size(26.dp)
-                    )
+                    IconButton(
+                        onClick = onOpenTemplates,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(Color.Transparent)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "擴充工具與範本",
+                            tint = Color(0xFF475569),
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = onOpenGallery,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(Color.Transparent)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Image,
+                            contentDescription = "選擇相片",
+                            tint = Color(0xFF475569),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
 
                 Row(
@@ -171,7 +263,7 @@ fun PlaygroundInputDock(
                             )
                         }
                     } else {
-                        val canSend = input.isNotBlank()
+                        val canSend = input.isNotBlank() || selectedImages.isNotEmpty()
                         IconButton(
                             onClick = onSend,
                             enabled = canSend,

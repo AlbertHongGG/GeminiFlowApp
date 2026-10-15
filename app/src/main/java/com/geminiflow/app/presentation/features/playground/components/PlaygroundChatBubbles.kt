@@ -16,9 +16,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -69,6 +71,8 @@ fun PlaygroundChatBubble(
 private fun UserMessageBubble(
     message: PlaygroundChatMessage
 ) {
+    val context = LocalContext.current
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -86,13 +90,63 @@ private fun UserMessageBubble(
             color = Color(0xFF0F172A),
             shadowElevation = 1.dp
         ) {
-            Text(
-                text = message.text,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                fontSize = 14.sp,
-                lineHeight = 22.sp,
-                color = Color.White
-            )
+            Column(
+                modifier = Modifier.padding(
+                    horizontal = if (message.userImageUris.isNotEmpty()) 10.dp else 16.dp,
+                    vertical = if (message.userImageUris.isNotEmpty()) 10.dp else 12.dp
+                )
+            ) {
+                if (message.userImageUris.isNotEmpty()) {
+                    if (message.userImageUris.size == 1) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(message.userImageUris.first())
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "上傳相片",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 240.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                        )
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            message.userImageUris.forEach { uri ->
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data(uri)
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = "上傳相片",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .aspectRatio(1f)
+                                        .clip(RoundedCornerShape(10.dp))
+                                )
+                            }
+                        }
+                    }
+
+                    if (message.text.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                    }
+                }
+
+                if (message.text.isNotBlank()) {
+                    Text(
+                        text = message.text,
+                        modifier = if (message.userImageUris.isNotEmpty()) Modifier.padding(horizontal = 4.dp, vertical = 2.dp) else Modifier,
+                        fontSize = 14.sp,
+                        lineHeight = 22.sp,
+                        color = Color.White
+                    )
+                }
+            }
         }
     }
 }

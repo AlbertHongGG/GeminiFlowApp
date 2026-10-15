@@ -23,6 +23,11 @@ import com.geminiflow.app.domain.repository.AuthRepository
 import com.geminiflow.app.domain.repository.ChatRepository
 import com.geminiflow.app.domain.repository.ImageRepository
 import com.geminiflow.app.domain.repository.SessionRepository
+import com.geminiflow.app.domain.repository.GalleryRepository
+import com.geminiflow.app.data.datasource.gallery.MediaStoreGalleryDataSource
+import com.geminiflow.app.data.repository.GalleryRepositoryImpl
+import com.geminiflow.app.data.media.ImageCompressor
+import com.geminiflow.app.domain.usecase.ProcessSelectedImagesUseCase
 import com.geminiflow.app.domain.usecase.EnsureAuthUseCase
 import com.geminiflow.app.domain.usecase.StreamChatUseCase
 import com.geminiflow.app.presentation.notification.NotificationController
@@ -53,6 +58,10 @@ class GeminiFlowApplication : Application() {
     lateinit var mediaExporter: MediaExporter
         private set
     lateinit var chatRepository: ChatRepository
+        private set
+    lateinit var galleryRepository: GalleryRepository
+        private set
+    lateinit var processSelectedImagesUseCase: ProcessSelectedImagesUseCase
         private set
     lateinit var streamChatUseCase: StreamChatUseCase
         private set
@@ -99,6 +108,11 @@ class GeminiFlowApplication : Application() {
         val waaClient = WaaClient(okHttpClient)
         val tokenSigner = AndroidV8TokenSigner(this, waaClient)
         chatRepository = ChatRepositoryImpl(okHttpClient, tokenSigner = tokenSigner)
+
+        val galleryDataSource = MediaStoreGalleryDataSource(this)
+        galleryRepository = GalleryRepositoryImpl(galleryDataSource)
+        val imageCompressor = ImageCompressor(this)
+        processSelectedImagesUseCase = ProcessSelectedImagesUseCase(imageCompressor)
 
         notificationLogManager = NotificationLogManager(this)
         apiLogManager = ApiLogManager(this)

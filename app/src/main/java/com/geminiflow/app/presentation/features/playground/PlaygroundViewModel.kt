@@ -11,6 +11,7 @@ import com.geminiflow.app.domain.model.chat.MessageDeliveryState
 import com.geminiflow.app.domain.model.chat.ModelFamily
 import com.geminiflow.app.domain.model.chat.PlaygroundChatMessage
 import com.geminiflow.app.domain.model.chat.ThinkingLevel
+import com.geminiflow.app.domain.model.gallery.GalleryMediaItem
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,6 +30,7 @@ class PlaygroundViewModel(application: Application) : AndroidViewModel(applicati
 
     private val app = application as GeminiFlowApplication
     private val streamChatUseCase = app.streamChatUseCase
+    private val processSelectedImagesUseCase = app.processSelectedImagesUseCase
     private val imageRepository = app.imageRepository
     private val authRepository = app.authRepository
     private val apiLogManager = app.apiLogManager
@@ -54,6 +56,24 @@ class PlaygroundViewModel(application: Application) : AndroidViewModel(applicati
         _uiState.update { it.copy(promptInput = text) }
     }
 
+    fun addSelectedImages(items: List<GalleryMediaItem>) {
+        _uiState.update { state ->
+            val existingIds = state.selectedImages.map { it.id }.toSet()
+            val newItems = items.filter { it.id !in existingIds }
+            state.copy(selectedImages = state.selectedImages + newItems)
+        }
+    }
+
+    fun removeSelectedImage(item: GalleryMediaItem) {
+        _uiState.update { state ->
+            state.copy(selectedImages = state.selectedImages.filterNot { it.id == item.id })
+        }
+    }
+
+    fun clearSelectedImages() {
+        _uiState.update { it.copy(selectedImages = emptyList()) }
+    }
+
     fun clearPlaygroundChat() {
         _uiState.update { it.copy(playgroundMessages = emptyList()) }
     }
@@ -71,11 +91,13 @@ class PlaygroundViewModel(application: Application) : AndroidViewModel(applicati
 
     fun sendPlaygroundPrompt() {
         val prompt = _uiState.value.promptInput.trim()
-        if (prompt.isBlank() || _uiState.value.isGenerating) return
+        val imagesToSend = _uiState.value.selectedImages
+        if ((prompt.isBlank() && imagesToSend.isEmpty()) || _uiState.value.isGenerating) return
 
         val userMessage = PlaygroundChatMessage(
             isUser = true,
-            text = prompt
+            text = prompt,
+            userImageUris = imagesToSend.map { it.uri }
         )
         val assistantMessage = PlaygroundChatMessage(
             isUser = false,
@@ -88,6 +110,7 @@ class PlaygroundViewModel(application: Application) : AndroidViewModel(applicati
             it.copy(
                 isGenerating = true,
                 promptInput = "",
+                selectedImages = emptyList(),
                 playgroundMessages = it.playgroundMessages + userMessage + assistantMessage
             )
         }
@@ -99,8 +122,22 @@ class PlaygroundViewModel(application: Application) : AndroidViewModel(applicati
             var generationError: String? = null
 
             try {
+                // 安全異步壓縮圖片為 ImagePayload (避免 OOM)
+                val imagePayloads = if (imagesToSend.isNotEmpty()) {
+                    processSelectedImagesUseCase(imagesToSend.map { it.uri })
+                } else {
+                    emptyList()
+                }
+
+                val effectivePrompt = if (prompt.isBlank() && imagePayloads.isNotEmpty()) {
+                    "請分析這張圖片的內容。"
+                } else {
+                    prompt
+                }
+
                 val req = ChatRequest(
-                    prompt = prompt,
+                    prompt = effectivePrompt,
+                    images = imagePayloads,
                     model = _uiState.value.selectedModel,
                     thinking = _uiState.value.selectedThinking
                 )
