@@ -4,7 +4,7 @@ object GeminiConfig {
     const val GEMINI_BASE_URL = "https://gemini.google.com"
     const val GEMINI_REQUEST_URL =
         "https://gemini.google.com/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate"
-    const val UPLOAD_IMAGE_URL = "https://content-push.googleapis.com/upload/"
+    const val UPLOAD_IMAGE_URL = "https://push.clients6.google.com/upload/"
 
     const val REQUEST_BL_PARAM = "boq_gemini-web-uiserver_20261012.19_p1"
     const val REQUIRED_COOKIE_NAME = "__Secure-1PSID"
@@ -29,16 +29,13 @@ object GeminiConfig {
     )
 
     val UPLOAD_IMAGE_HEADERS = mapOf(
-        "authority" to "content-push.googleapis.com",
+        "authority" to "push.clients6.google.com",
         "accept" to "*/*",
-        "accept-language" to "en-US,en;q=0.7",
-        "authorization" to "Basic c2F2ZXM6cyNMdGhlNmxzd2F2b0RsN3J1d1U=",
+        "accept-language" to "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
         "content-type" to "application/x-www-form-urlencoded;charset=UTF-8",
         "origin" to "https://gemini.google.com",
         "push-id" to "feeds/mcudyrk2a4khkz",
         "referer" to "https://gemini.google.com/",
-        "x-goog-upload-command" to "start",
-        "x-goog-upload-header-content-length" to "",
         "x-goog-upload-protocol" to "resumable",
         "x-tenant-id" to "bard-storage"
     )

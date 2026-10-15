@@ -27,77 +27,20 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
+import com.geminiflow.app.data.network.upload.GeminiImageUploader
 import com.geminiflow.app.domain.attestation.TokenSigner
 import com.geminiflow.app.domain.model.common.RateLimitException
+import com.geminiflow.app.domain.repository.ImageUploader
 
 class ChatRepositoryImpl(
     private val client: OkHttpClient,
     private val protocolEngine: GeminiProtocolEngine = GeminiProtocolEngine(GeminiConfig.REQUEST_BL_PARAM),
-    private val tokenSigner: TokenSigner? = null
+    private val tokenSigner: TokenSigner? = null,
+    private val imageUploader: ImageUploader = GeminiImageUploader(client)
 ) : ChatRepository {
 
     companion object {
         private const val TAG = "ChatRepositoryImpl"
-    }
-
-    private suspend fun uploadImages(
-        images: List<ImagePayload>,
-        cookiesHeader: String
-    ): List<Pair<String, String>> = withContext(Dispatchers.IO) {
-        val uploads = mutableListOf<Pair<String, String>>()
-        for (img in images) {
-            try {
-                val startBody = (if (img.filename.isNotEmpty()) "File name: ${img.filename}" else "")
-                    .toRequestBody("application/x-www-form-urlencoded;charset=UTF-8".toMediaType())
-
-                val startReqBuilder = Request.Builder()
-                    .url(GeminiConfig.UPLOAD_IMAGE_URL)
-                    .post(startBody)
-                    .header("Cookie", cookiesHeader)
-
-                GeminiConfig.UPLOAD_IMAGE_HEADERS.forEach { (k, v) ->
-                    startReqBuilder.header(k, v)
-                }
-                startReqBuilder.header("size", img.data.size.toString())
-                startReqBuilder.header("x-goog-upload-command", "start")
-
-                val startResponse = client.newCall(startReqBuilder.build()).execute()
-                val uploadUrl = startResponse.header("X-Goog-Upload-Url")
-                startResponse.close()
-
-                if (uploadUrl.isNullOrEmpty()) {
-                    throw NetworkException("圖片上傳失敗：缺少 X-Goog-Upload-Url 標頭")
-                }
-
-                val uploadBody = img.data.toRequestBody("application/octet-stream".toMediaType())
-                val finalizeReqBuilder = Request.Builder()
-                    .url(uploadUrl)
-                    .post(uploadBody)
-                    .header("Cookie", cookiesHeader)
-
-                GeminiConfig.UPLOAD_IMAGE_HEADERS.forEach { (k, v) ->
-                    finalizeReqBuilder.header(k, v)
-                }
-                finalizeReqBuilder.header("size", img.data.size.toString())
-                finalizeReqBuilder.header("x-goog-upload-command", "upload, finalize")
-                finalizeReqBuilder.header("X-Goog-Upload-Offset", "0")
-
-                val finalizeResponse = client.newCall(finalizeReqBuilder.build()).execute()
-                val uploadRef = finalizeResponse.body?.string() ?: ""
-                val code = finalizeResponse.code
-                finalizeResponse.close()
-
-                if (code >= 400 || uploadRef.isEmpty()) {
-                    throw NetworkException("圖片資料上傳失敗：HTTP $code")
-                }
-
-                uploads.add(Pair(uploadRef, img.filename))
-            } catch (e: Exception) {
-                Log.e(TAG, "Image upload error: ${e.message}", e)
-                throw if (e is NetworkException) e else NetworkException("上傳圖片失敗: ${e.message}", e)
-            }
-        }
-        uploads
     }
 
     override suspend fun streamGenerate(
@@ -108,9 +51,10 @@ class ChatRepositoryImpl(
     ): Flow<ChatResponseChunk> = flow {
         val cookiesHeader = cookies.entries.joinToString("; ") { "${it.key}=${it.value}" }
 
-        var uploads = emptyList<Pair<String, String>>()
-        if (request.images.isNotEmpty()) {
-            uploads = uploadImages(request.images, cookiesHeader)
+        val uploads = if (request.images.isNotEmpty()) {
+            imageUploader.uploadImages(request.images, cookies)
+        } else {
+            emptyList()
         }
 
         // 2. Cryptographic Botguard Attestation Signing (Content-Bound)

@@ -11,6 +11,7 @@ import com.geminiflow.app.data.auth.CookieManagerHelper
 import com.geminiflow.app.data.media.AndroidMediaExporter
 import com.geminiflow.app.data.network.TrafficLoggingInterceptor
 import com.geminiflow.app.data.network.export.GeminiImageExportService
+import com.geminiflow.app.data.network.upload.GeminiImageUploader
 import com.geminiflow.app.data.repository.AuthRepositoryImpl
 import com.geminiflow.app.data.repository.ChatRepositoryImpl
 import com.geminiflow.app.data.repository.ImageRepositoryImpl
@@ -22,6 +23,7 @@ import com.geminiflow.app.domain.media.MediaExporter
 import com.geminiflow.app.domain.repository.AuthRepository
 import com.geminiflow.app.domain.repository.ChatRepository
 import com.geminiflow.app.domain.repository.ImageRepository
+import com.geminiflow.app.domain.repository.ImageUploader
 import com.geminiflow.app.domain.repository.SessionRepository
 import com.geminiflow.app.domain.repository.GalleryRepository
 import com.geminiflow.app.data.datasource.gallery.MediaStoreGalleryDataSource
@@ -54,6 +56,8 @@ class GeminiFlowApplication : Application() {
     lateinit var sessionRepository: SessionRepository
         private set
     lateinit var imageRepository: ImageRepository
+        private set
+    lateinit var imageUploader: ImageUploader
         private set
     lateinit var mediaExporter: MediaExporter
         private set
@@ -104,10 +108,11 @@ class GeminiFlowApplication : Application() {
         sessionRepository = SessionRepositoryImpl(this)
         val imageExportService = GeminiImageExportService(okHttpClient)
         imageRepository = ImageRepositoryImpl(this, exportService = imageExportService)
+        imageUploader = GeminiImageUploader(okHttpClient)
         mediaExporter = AndroidMediaExporter(this)
         val waaClient = WaaClient(okHttpClient)
         val tokenSigner = AndroidV8TokenSigner(this, waaClient)
-        chatRepository = ChatRepositoryImpl(okHttpClient, tokenSigner = tokenSigner)
+        chatRepository = ChatRepositoryImpl(okHttpClient, tokenSigner = tokenSigner, imageUploader = imageUploader)
 
         val galleryDataSource = MediaStoreGalleryDataSource(this)
         galleryRepository = GalleryRepositoryImpl(galleryDataSource)
