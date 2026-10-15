@@ -43,14 +43,10 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -72,10 +68,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.geminiflow.app.domain.model.gallery.GalleryMediaItem
+import com.geminiflow.app.presentation.components.IsolatedHandleBottomSheet
 import com.geminiflow.app.presentation.features.gallery.GalleryPickerViewModel
 import com.geminiflow.app.presentation.theme.AppColors
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GalleryPickerBottomSheet(
     onDismiss: () -> Unit,
@@ -83,7 +79,6 @@ fun GalleryPickerBottomSheet(
     maxSelection: Int = 4,
     viewModel: GalleryPickerViewModel = viewModel()
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
 
@@ -120,24 +115,11 @@ fun GalleryPickerBottomSheet(
         }
     }
 
-    val configuration = LocalConfiguration.current
-    val sheetHeight = (configuration.screenHeightDp * 0.88f).dp
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = AppColors.surfaceLight,
-        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-        dragHandle = null,
-        tonalElevation = 0.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(sheetHeight)
-                .navigationBarsPadding()
-        ) {
-            // 頂部 Handle 與導航列
+    IsolatedHandleBottomSheet(
+        onDismiss = onDismiss,
+        heightRatio = 0.88f,
+        header = {
+            // 頂部 Handle 與導航列 (此區域是唯一感應向下拖曳以關閉的區域)
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -191,55 +173,49 @@ fun GalleryPickerBottomSheet(
                     }
                 }
             }
-
-            // 內容展示區
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-            ) {
-                if (!uiState.hasPermission && uiState.permissionRequested) {
-                    PermissionDeniedView(
-                        onOpenSettings = {
-                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                data = Uri.fromParts("package", context.packageName, null)
-                            }
-                            context.startActivity(intent)
-                        },
-                        onRequestAgain = {
-                            permissionLauncher.launch(permissionsToRequest)
-                        }
-                    )
-                } else if (uiState.allAssets.isEmpty() && uiState.isLoading) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(
-                            color = AppColors.primary,
-                            modifier = Modifier.size(36.dp)
-                        )
+        }
+    ) {
+        // 內容展示區 (手勢完全隔離，在照片網格滑動時完全不會連動關閉彈窗)
+        if (!uiState.hasPermission && uiState.permissionRequested) {
+            PermissionDeniedView(
+                onOpenSettings = {
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.fromParts("package", context.packageName, null)
                     }
-                } else if (uiState.allAssets.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "相簿內查無照片",
-                            color = AppColors.textSecondaryLight,
-                            fontSize = 14.sp
-                        )
-                    }
-                } else {
-                    GalleryGridView(
-                        uiState = uiState,
-                        maxSelection = maxSelection,
-                        onToggleSelect = { item -> viewModel.toggleSelection(item, maxSelection) },
-                        onLoadMore = { viewModel.loadMore() }
-                    )
+                    context.startActivity(intent)
+                },
+                onRequestAgain = {
+                    permissionLauncher.launch(permissionsToRequest)
                 }
+            )
+        } else if (uiState.allAssets.isEmpty() && uiState.isLoading) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(
+                    color = AppColors.primary,
+                    modifier = Modifier.size(36.dp)
+                )
             }
+        } else if (uiState.allAssets.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "相簿內查無照片",
+                    color = AppColors.textSecondaryLight,
+                    fontSize = 14.sp
+                )
+            }
+        } else {
+            GalleryGridView(
+                uiState = uiState,
+                maxSelection = maxSelection,
+                onToggleSelect = { item -> viewModel.toggleSelection(item, maxSelection) },
+                onLoadMore = { viewModel.loadMore() }
+            )
         }
     }
 }
