@@ -27,6 +27,9 @@ class AuthRepositoryImpl(
         private val SNLM0E_PATTERN_1 = Pattern.compile("""SNlM0e\\":\\"(.*?)\\"""")
         private val SNLM0E_PATTERN_2 = Pattern.compile("""SNlM0e":"(.*?)"""")
         private val SID_PATTERN = Pattern.compile(""""FdrFJe":"([\d-]+)"""")
+        private val BL_PATTERN_1 = Pattern.compile(""""cfb2h":"([^"]+)"""")
+        private val BL_PATTERN_2 = Pattern.compile("""cfb2h\\":\\"([^\\"]+)\\"""")
+        private val BL_PATTERN_3 = Pattern.compile("""(boq_gemini-web-uiserver_[0-9a-zA-Z._]+)""")
     }
 
     private val _isAuthenticated = MutableStateFlow(cookieHelper.hasRequiredCookie())
@@ -121,6 +124,22 @@ class AuthRepositoryImpl(
             sid = sidMatcher.group(1)
         }
 
-        return GeminiTokens(snlm0e = snlm0e, sid = sid)
+        var serverBl: String? = null
+        var blMatcher = BL_PATTERN_1.matcher(html)
+        if (blMatcher.find()) {
+            serverBl = blMatcher.group(1)
+        } else {
+            blMatcher = BL_PATTERN_2.matcher(html)
+            if (blMatcher.find()) {
+                serverBl = blMatcher.group(1)
+            } else {
+                blMatcher = BL_PATTERN_3.matcher(html)
+                if (blMatcher.find()) {
+                    serverBl = blMatcher.group(1)
+                }
+            }
+        }
+
+        return GeminiTokens(snlm0e = snlm0e, sid = sid, serverBl = serverBl)
     }
 }

@@ -47,6 +47,18 @@ class GeminiStreamParser(
         }
 
         if (convId != null && continuationToken == null) {
+            if (responsePart.length() > 2) {
+                val part2 = responsePart.optJSONObject(2)
+                if (part2 != null) {
+                    val tok = part2.optString("26", "")
+                    if (tok.length >= 28 && tok.startsWith("Aw")) {
+                        continuationToken = tok
+                    }
+                }
+            }
+        }
+
+        if (convId != null && continuationToken == null) {
             continuationToken = findContinuationTokenRecursive(responsePart)
         }
 
@@ -205,6 +217,34 @@ class GeminiStreamParser(
         }
 
         return imageBlockExtractor.extract(responsePart)
+    }
+
+    /**
+     * 偵測 Google StreamGenerate 串流結束訊框。
+     * Google 串流以包含 [["e", ...]] 或 [["di", ...]] 的 JSPB 訊框作為結束標記。
+     */
+    fun isEndOfStream(rawLine: String): Boolean {
+        val stripped = rawLine.trim()
+        if (stripped.isEmpty()) return false
+
+        try {
+            val lineArray = JSONArray(stripped)
+            for (i in 0 until lineArray.length()) {
+                val item = lineArray.optJSONArray(i)
+                if (item != null && item.length() > 0) {
+                    val first = item.optString(0, "")
+                    if (first == "e" || first == "di") {
+                        return true
+                    }
+                }
+            }
+        } catch (_: Exception) {
+        }
+
+        return stripped.startsWith("""[["e",""") ||
+               stripped.startsWith("""[["di",""") ||
+               stripped.contains(""""di",null""") ||
+               stripped.contains("""["di",null""")
     }
 
     fun reset() {

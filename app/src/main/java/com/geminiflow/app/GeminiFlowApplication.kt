@@ -5,6 +5,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
+import com.geminiflow.app.data.attestation.AndroidV8TokenSigner
+import com.geminiflow.app.data.attestation.WaaClient
 import com.geminiflow.app.data.auth.CookieManagerHelper
 import com.geminiflow.app.data.media.AndroidMediaExporter
 import com.geminiflow.app.data.network.TrafficLoggingInterceptor
@@ -94,7 +96,9 @@ class GeminiFlowApplication : Application() {
         val imageExportService = GeminiImageExportService(okHttpClient)
         imageRepository = ImageRepositoryImpl(this, exportService = imageExportService)
         mediaExporter = AndroidMediaExporter(this)
-        chatRepository = ChatRepositoryImpl(okHttpClient)
+        val waaClient = WaaClient(okHttpClient)
+        val tokenSigner = AndroidV8TokenSigner(this, waaClient)
+        chatRepository = ChatRepositoryImpl(okHttpClient, tokenSigner = tokenSigner)
 
         notificationLogManager = NotificationLogManager(this)
         apiLogManager = ApiLogManager(this)

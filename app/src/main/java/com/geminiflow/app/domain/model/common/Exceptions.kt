@@ -16,3 +16,15 @@ class PayloadException(message: String) :
 
 class ImageDownloadException(message: String, cause: Throwable? = null) :
     GeminiFlowException(message, cause)
+
+class RateLimitException(message: String = "Google 邊緣網關觸發頻率限制 (HTTP 429)") :
+    GeminiFlowException(message)
+
+open class AttestationException(message: String, cause: Throwable? = null) :
+    GeminiFlowException(message, cause)
+
+class ChallengeFetchException(message: String, cause: Throwable? = null) :
+    AttestationException(message, cause)
+
+class VmExecutionException(message: String, cause: Throwable? = null) :
+    AttestationException(message, cause)

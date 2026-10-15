@@ -15,15 +15,19 @@ class GeminiProtocolEngine(
         request: ChatRequest,
         tokens: GeminiTokens,
         sessionData: SessionData? = null,
-        uploads: List<Pair<String, String>> = emptyList()
+        uploads: List<Pair<String, String>> = emptyList(),
+        botguardToken: String? = null,
+        botguardSalt: String? = null
     ): ProtocolRequest {
         val reqUuid = UUID.randomUUID().toString().uppercase()
         val modelSpec = request.modelSpec
+        val effectiveBl = tokens.serverBl ?: serverBl
 
         // 1. URL Query Parameters
         val params = mapOf(
-            "bl" to serverBl,
+            "bl" to effectiveBl,
             "hl" to request.language,
+            "pageId" to "none",
             "_reqid" to Random.nextInt(111111, 9999999).toString(),
             "rt" to "c",
             "f.sid" to (tokens.sid ?: "")
@@ -34,7 +38,7 @@ class GeminiProtocolEngine(
             modelSpec = modelSpec,
             sessionUuid = sessionUuid,
             reqUuid = reqUuid,
-            serverBl = serverBl
+            serverBl = effectiveBl
         )
         val headers = headerBuilder.buildAllHeaders()
 
@@ -44,15 +48,16 @@ class GeminiProtocolEngine(
         val continuationToken = sessionData?.continuationToken
 
         val payloadBuilder = GeminiPayloadBuilder(
-            prompt = request.prompt,
-            systemPrompt = request.systemPrompt,
+            prompt = request.effectivePrompt,
             language = request.language,
             modelSpec = modelSpec,
             reqUuid = reqUuid,
             uploads = uploads,
             conversationId = conversationId,
             continuationToken = continuationToken,
-            turnIndex = turnIndex
+            turnIndex = turnIndex,
+            botguardToken = botguardToken,
+            botguardSalt = botguardSalt
         )
         val postData = payloadBuilder.buildPostData(atToken = tokens.snlm0e)
 

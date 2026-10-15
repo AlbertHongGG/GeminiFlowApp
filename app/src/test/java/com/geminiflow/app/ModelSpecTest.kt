@@ -12,6 +12,10 @@ class ModelSpecTest {
     @Test
     fun testModelFamily_resolution() {
         assertEquals(ModelFamily.FLASH, ModelFamily.fromModelName("gemini-3.8-flash"))
+        assertEquals(ModelFamily.FLASH_LITE, ModelFamily.fromModelName("gemini-3.5-flash-lite"))
+        assertEquals(ModelFamily.FLASH_LITE, ModelFamily.fromModelName("flash-lite"))
+        assertEquals(ModelFamily.FLASH_LITE, ModelFamily.fromModelName("lite"))
+
         assertEquals(ModelFamily.FLASH, ModelFamily.fromModelName("gemini-3.5-flash"))
         assertEquals(ModelFamily.FLASH, ModelFamily.fromModelName("flash"))
         assertEquals(ModelFamily.FLASH, ModelFamily.fromModelName(null))
@@ -25,11 +29,14 @@ class ModelSpecTest {
         assertEquals(ModelFamily.ARGON, ModelFamily.fromModelName("gemini-4"))
         assertEquals(ModelFamily.ARGON, ModelFamily.fromModelName("gemini4"))
 
+        assertEquals(1, ModelFamily.FLASH_LITE.modelId)
+        assertEquals("fbb127bbb056c959", ModelFamily.FLASH_LITE.modelHash)
+
         assertEquals(1, ModelFamily.FLASH.modelId)
         assertEquals("56fdd199312815e2", ModelFamily.FLASH.modelHash)
 
-        assertEquals(3, ModelFamily.PRO.modelId)
-        assertEquals("e6fa609c3fa255c0", ModelFamily.PRO.modelHash)
+        assertEquals(6, ModelFamily.PRO.modelId)
+        assertEquals("8c46e95b1a07cecc", ModelFamily.PRO.modelHash)
 
         assertEquals(8, ModelFamily.ARGON.modelId)
         assertEquals("95a4c0abcba24364", ModelFamily.ARGON.modelHash)
@@ -75,7 +82,7 @@ class ModelSpecTest {
         val spec3 = ModelSpec.resolve("gemini-3-pro", "high")
         assertEquals(ModelFamily.PRO, spec3.family)
         assertEquals(ThinkingLevel.HIGH, spec3.thinking)
-        assertEquals(3, spec3.modelId)
+        assertEquals(6, spec3.modelId)
         assertEquals(2, spec3.thinkingLevel)
 
         val spec4 = ModelSpec.resolve("gemini4Argon", "medium")
@@ -94,7 +101,7 @@ class ModelSpecTest {
         )
         assertEquals(ModelFamily.PRO, req1.modelSpec.family)
         assertEquals(ThinkingLevel.HIGH, req1.modelSpec.thinking)
-        assertEquals(3, req1.modelSpec.modelId)
+        assertEquals(6, req1.modelSpec.modelId)
         assertEquals(2, req1.modelSpec.thinkingLevel)
 
         val req2 = ChatRequest(
@@ -106,5 +113,14 @@ class ModelSpecTest {
         assertEquals(ThinkingLevel.MEDIUM, req2.modelSpec.thinking)
         assertEquals(8, req2.modelSpec.modelId)
         assertEquals(4, req2.modelSpec.thinkingLevel)
+    }
+
+    @Test
+    fun testChatRequest_effectivePrompt() {
+        val reqWithoutSys = ChatRequest(prompt = "Hello World")
+        assertEquals("Hello World", reqWithoutSys.effectivePrompt)
+
+        val reqWithSys = ChatRequest(prompt = "Hello World", systemPrompt = "You are an assistant.")
+        assertEquals("System:\nYou are an assistant.\n\nUser:\nHello World", reqWithSys.effectivePrompt)
     }
 }

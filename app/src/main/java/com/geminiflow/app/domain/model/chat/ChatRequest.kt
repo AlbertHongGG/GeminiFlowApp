@@ -11,4 +11,11 @@ data class ChatRequest(
     val autoRefreshCookies: Boolean = true
 ) {
     val modelSpec: ModelSpec get() = ModelSpec.resolve(model, thinking)
+
+    val effectivePrompt: String
+        get() = if (!systemPrompt.isNullOrBlank()) {
+            "System:\n$systemPrompt\n\nUser:\n$prompt"
+        } else {
+            prompt
+        }
 }

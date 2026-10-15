@@ -156,4 +156,44 @@ class GeminiStreamParserTest {
         assertEquals("im_img999", exportMeta?.imageId)
         assertEquals("https://lh3.googleusercontent.com/gg-dl/preview123", exportMeta?.previewUrl)
     }
+
+    @Test
+    fun testIsEndOfStream_detection() {
+        val parser = GeminiStreamParser()
+
+        // 1. End Frame [["e", 1]]
+        val endFrame1 = """[["e",1,null,null,120]]"""
+        assertTrue(parser.isEndOfStream(endFrame1))
+
+        // 2. Data Interaction Finish Frame [["di", null]]
+        val diFrame1 = """[["di",null,null,null,null,[]]]"""
+        assertTrue(parser.isEndOfStream(diFrame1))
+
+        // 3. Mixed / secondary position di frame
+        val mixedFrame = """[["wrb.fr",null,"[null]"],["di",null]]"""
+        assertTrue(parser.isEndOfStream(mixedFrame))
+
+        // 4. Normal content frame - should NOT be end of stream
+        val normalFrame = """[["wrb.fr",null,"[null,null,null,null,[[\"test\",[\"Hello\"]]]]]"]]"""
+        org.junit.Assert.assertFalse(parser.isEndOfStream(normalFrame))
+
+        // 5. Empty line - should NOT be end of stream
+        org.junit.Assert.assertFalse(parser.isEndOfStream(""))
+    }
+
+    @Test
+    fun testExtractContinuationToken_fromPart2Key26() {
+        val parser = GeminiStreamParser()
+        val part2Json = org.json.JSONObject().apply {
+            put("26", "AwAAAAAAAAAQANM7mBjXKZS5cPttExoLate")
+        }
+        val root = org.json.JSONArray().apply {
+            put(org.json.JSONObject.NULL) // 0
+            put(org.json.JSONArray().put("c_test_conv_999")) // 1: conv_id
+            put(part2Json) // 2: part2 with key 26
+        }
+        val (convId, contToken) = parser.extractConversationContext(root)
+        assertEquals("c_test_conv_999", convId)
+        assertEquals("AwAAAAAAAAAQANM7mBjXKZS5cPttExoLate", contToken)
+    }
 }

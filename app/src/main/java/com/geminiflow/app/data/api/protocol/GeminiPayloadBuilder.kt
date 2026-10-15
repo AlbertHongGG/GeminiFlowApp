@@ -5,21 +5,24 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class GeminiPayloadBuilder(
-    prompt: String,
-    systemPrompt: String?,
+    private val prompt: String,
     private val language: String,
     private val modelSpec: ModelSpec,
     private val reqUuid: String,
     private val uploads: List<Pair<String, String>> = emptyList(),
     private val conversationId: String? = null,
     private val continuationToken: String? = null,
-    private val turnIndex: Int = 0
+    private val turnIndex: Int = 0,
+    private val botguardToken: String? = null,
+    private val botguardSalt: String? = null
 ) {
     companion object {
         const val ARRAY_LENGTH = 99
 
         const val IDX_PROMPT_BLOCK = 0
         const val IDX_LANGUAGE = 1
+        const val IDX_BOTGUARD_TOKEN = 3
+        const val IDX_BOTGUARD_SALT = 4
         const val IDX_TURN_INDEX = 17
         const val IDX_CAPABILITIES = 30
         const val IDX_REQ_UUID = 59
@@ -27,12 +30,6 @@ class GeminiPayloadBuilder(
         const val IDX_MODEL_ID = 79
         const val IDX_THINKING_LEVEL = 80
         const val IDX_NEW_SESSION_FLAG = 96
-    }
-
-    private val finalPrompt: String = if (!systemPrompt.isNullOrBlank()) {
-        "System:\n$systemPrompt\n\nUser:\n$prompt"
-    } else {
-        prompt
     }
 
     private fun buildConversationContext(): Any {
@@ -63,7 +60,7 @@ class GeminiPayloadBuilder(
         } else JSONObject.NULL
 
         arr[IDX_PROMPT_BLOCK] = JSONArray().apply {
-            put(finalPrompt)
+            put(prompt)
             put(0)
             put(JSONObject.NULL)
             put(imageList)
@@ -76,6 +73,14 @@ class GeminiPayloadBuilder(
         arr[IDX_LANGUAGE] = JSONArray().put(language)
 
         // 2: Legacy conversation IDs abandoned - remains null/JSONObject.NULL
+
+        // 3 & 4: Botguard attestation token and random salt
+        if (botguardToken != null) {
+            arr[IDX_BOTGUARD_TOKEN] = botguardToken
+        }
+        if (botguardSalt != null) {
+            arr[IDX_BOTGUARD_SALT] = botguardSalt
+        }
 
         // Static flags
         arr[6] = JSONArray().put(0)

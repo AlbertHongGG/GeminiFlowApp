@@ -80,8 +80,10 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.haze)
 
-    // Storage & Security & WebKit
+    // Storage & Security & WebKit & JavaScriptEngine
     implementation(libs.androidx.webkit)
+    implementation(libs.androidx.javascriptengine)
+    implementation(libs.androidx.concurrent.futures.ktx)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.security.crypto)
 

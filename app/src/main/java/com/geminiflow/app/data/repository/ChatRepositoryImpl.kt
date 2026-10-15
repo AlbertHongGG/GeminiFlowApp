@@ -27,9 +27,13 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
+import com.geminiflow.app.domain.attestation.TokenSigner
+import com.geminiflow.app.domain.model.common.RateLimitException
+
 class ChatRepositoryImpl(
     private val client: OkHttpClient,
-    private val protocolEngine: GeminiProtocolEngine = GeminiProtocolEngine(GeminiConfig.REQUEST_BL_PARAM)
+    private val protocolEngine: GeminiProtocolEngine = GeminiProtocolEngine(GeminiConfig.REQUEST_BL_PARAM),
+    private val tokenSigner: TokenSigner? = null
 ) : ChatRepository {
 
     companion object {
@@ -109,11 +113,28 @@ class ChatRepositoryImpl(
             uploads = uploadImages(request.images, cookiesHeader)
         }
 
+        // 2. Cryptographic Botguard Attestation Signing (Content-Bound)
+        var botguardToken: String? = null
+        var botguardSalt: String? = null
+        if (tokenSigner != null) {
+            try {
+                val bgToken = tokenSigner.sign(request.effectivePrompt, sessionData?.conversationId)
+                if (bgToken != null) {
+                    botguardToken = bgToken.token
+                    botguardSalt = bgToken.salt
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Token signer execution failed, proceeding without Botguard token: ${e.message}")
+            }
+        }
+
         val protoReq = protocolEngine.buildRequest(
             request = request,
             tokens = tokens,
             sessionData = sessionData,
-            uploads = uploads
+            uploads = uploads,
+            botguardToken = botguardToken,
+            botguardSalt = botguardSalt
         )
 
         val urlBuilder = GeminiConfig.GEMINI_REQUEST_URL.toHttpUrlOrNull()?.newBuilder()
@@ -156,6 +177,12 @@ class ChatRepositoryImpl(
             throw NetworkException("連線至 Gemini 伺服器失敗: ${e.message}", e)
         }
 
+        if (response.code == 429) {
+            val bodyPreview = response.body?.string()?.take(150)
+            response.close()
+            throw RateLimitException("Google 邊緣網關觸發頻率限制 (HTTP 429): $bodyPreview")
+        }
+
         if (response.code in listOf(401, 403)) {
             val bodyPreview = response.body?.string()?.take(150)
             response.close()
@@ -175,6 +202,7 @@ class ChatRepositoryImpl(
         var emittedSession = false
         var latestConversationId: String? = sessionData?.conversationId
         var latestContinuationToken: String? = sessionData?.continuationToken
+        var lastEmittedContToken: String? = null
         var latestExportMetadata: com.geminiflow.app.domain.model.export.ImageExportMetadata? = null
 
         val reader = BufferedReader(InputStreamReader(responseBody.byteStream(), Charsets.UTF_8))
@@ -198,26 +226,43 @@ class ChatRepositoryImpl(
                     latestContinuationToken = contToken
                 }
 
-                if (convId != null && !emittedSession) {
+                if (latestConversationId != null && !emittedSession) {
                     emittedSession = true
                     emit(
                         ChatResponseChunk(
-                            conversationId = convId,
+                            conversationId = latestConversationId,
                             continuationToken = latestContinuationToken
                         )
                     )
+                    lastEmittedContToken = latestContinuationToken
                 }
 
                 if (!delta.isNullOrEmpty()) {
                     emit(ChatResponseChunk(text = delta))
                 }
+
+                // 核心防延遲機制：一旦命中結束訊框，立刻主動中斷讀取迴圈！
+                if (parser.isEndOfStream(currentLine)) {
+                    break
+                }
             }
         } finally {
-            reader.close()
-            response.close()
+            try {
+                reader.close()
+                response.close()
+            } catch (_: Exception) {
+            }
         }
 
-        if (!emittedSession && (latestConversationId != null || latestContinuationToken != null)) {
+        // 若續接 Token 晚到，發出最後一次 Session 補發 Chunk
+        if (latestConversationId != null && latestContinuationToken != null && latestContinuationToken != lastEmittedContToken) {
+            emit(
+                ChatResponseChunk(
+                    conversationId = latestConversationId,
+                    continuationToken = latestContinuationToken
+                )
+            )
+        } else if (!emittedSession && (latestConversationId != null || latestContinuationToken != null)) {
             emit(
                 ChatResponseChunk(
                     conversationId = latestConversationId,

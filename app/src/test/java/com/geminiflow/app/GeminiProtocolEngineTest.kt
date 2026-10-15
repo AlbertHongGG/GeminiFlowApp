@@ -113,9 +113,11 @@ class GeminiProtocolEngineTest {
         val fReq = JSONArray(proto.postData["f.req"])
         val inner = JSONArray(fReq.getString(1))
 
-        assertEquals("e6fa609c3fa255c0", h525.getString(4))
-        assertEquals(3, h525.getInt(14))
+        assertEquals("8c46e95b1a07cecc", h525.getString(4))
+        assertEquals(6, h525.getInt(14))
         assertEquals(1, h525.getInt(15))
+
+        assertEquals("none", proto.params["pageId"])
 
         assertEquals("第二次測試", inner.getJSONArray(0).getString(0))
         assertTrue(inner.isNull(2))
@@ -127,7 +129,7 @@ class GeminiProtocolEngineTest {
         for (i in 1..6) assertTrue(ctx.isNull(i))
         assertEquals("AwAAAAAAAAAQANM7mBjXKZS5cPttExo", ctx.getString(7))
 
-        assertEquals(3, inner.getInt(79))
+        assertEquals(6, inner.getInt(79))
         assertEquals(1, inner.getInt(80))
         assertEquals(1, inner.getInt(96))
     }
@@ -241,5 +243,35 @@ class GeminiProtocolEngineTest {
         assertEquals(8, inner.getInt(79))
         assertEquals(2, inner.getInt(80)) // high thinking = 2
         assertEquals(1, inner.getInt(96))
+    }
+
+    @Test
+    fun testBotguardTokenAndSalt_injection() {
+        val engine = GeminiProtocolEngine(serverBl = testBl)
+        val req = ChatRequest(prompt = "測試 Botguard", model = "gemini-3.8-flash")
+        val proto = engine.buildRequest(
+            request = req,
+            tokens = tokens,
+            botguardToken = "!TEST_TOKEN_12345",
+            botguardSalt = "0123456789abcdef0123456789abcdef"
+        )
+        val fReq = JSONArray(proto.postData["f.req"])
+        val inner = JSONArray(fReq.getString(1))
+
+        assertEquals("!TEST_TOKEN_12345", inner.getString(3))
+        assertEquals("0123456789abcdef0123456789abcdef", inner.getString(4))
+        assertEquals("none", proto.params["pageId"])
+    }
+
+    @Test
+    fun testDynamicServerBl_priority() {
+        val engine = GeminiProtocolEngine(serverBl = testBl)
+        val dynamicTokens = GeminiTokens(snlm0e = "AT", sid = "SID", serverBl = "boq_gemini-web-uiserver_20261015.01_p0")
+        val req = ChatRequest(prompt = "測試 BL", model = "gemini-3.8-flash")
+        val proto = engine.buildRequest(req, dynamicTokens)
+
+        assertEquals("boq_gemini-web-uiserver_20261015.01_p0", proto.params["bl"])
+        val h525 = JSONArray(proto.headers["x-goog-ext-525001261-jspb"])
+        assertEquals("boq_gemini-web-uiserver_20261015.01_p0", h525.getJSONArray(17).getString(0))
     }
 }
