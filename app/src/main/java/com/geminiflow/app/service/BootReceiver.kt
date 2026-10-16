@@ -22,7 +22,12 @@ class BootReceiver : BroadcastReceiver() {
                 Log.i(TAG, "Device booted and auto-start is enabled. Starting GeminiFlow service...")
                 val host = prefs.getString("server_host", "127.0.0.1") ?: "127.0.0.1"
                 val port = prefs.getInt("server_port", 5000)
-                GeminiForegroundService.startService(context, host, port)
+                val app = context.applicationContext as? com.geminiflow.app.GeminiFlowApplication
+                if (app != null) {
+                    app.serverController.start(host, port)
+                } else {
+                    GeminiForegroundService.startService(context, host, port)
+                }
             }
         }
     }

@@ -85,7 +85,9 @@ class KtorServerManager(
             _state.value = ServerState.Starting(host, port)
 
             try {
-                val engine = embeddedServer(CIO, host = host, port = port) {
+                val engine = embeddedServer(CIO, host = host, port = port, configure = {
+                    connectionIdleTimeoutSeconds = 120
+                }) {
                     install(ContentNegotiation) {
                         json(Json {
                             prettyPrint = false

@@ -27,7 +27,7 @@ import kotlinx.coroutines.launch
 class ServerHubViewModel(application: Application) : AndroidViewModel(application) {
 
     private val app = application as GeminiFlowApplication
-    private val serverManager = app.serverManager
+    private val serverController = app.serverController
     private val trafficLogManager = app.trafficLogManager
     private val imageRepository = app.imageRepository
     private val authRepository = app.authRepository
@@ -60,7 +60,7 @@ class ServerHubViewModel(application: Application) : AndroidViewModel(applicatio
 
     private fun observeServerState() {
         viewModelScope.launch {
-            serverManager.state.collect { state ->
+            serverController.state.collect { state ->
                 _uiState.update {
                     it.copy(
                         serverState = state,
@@ -122,26 +122,19 @@ class ServerHubViewModel(application: Application) : AndroidViewModel(applicatio
             return
         }
 
-        viewModelScope.launch {
-            if (currentState.isRunning) {
-                // 停止服務：委託 ServerManager 非同步停止引擎，前台服務感知 Stopped 狀態後自動終止
-                serverManager.stopServer()
-            } else {
-                if (!authRepository.isAuthenticated.value) {
-                    NotificationController.showWarning("尚未登入 Google 憑證，請至設定完成授權")
-                    return@launch
-                }
-                // 啟動服務：喚醒前台保活服務並由 ServerManager 非同步啟動引擎
-                GeminiForegroundService.startService(
-                    app,
-                    currentState.host,
-                    currentState.port
-                )
-                serverManager.startServer(
-                    currentState.host,
-                    currentState.port
-                )
+        if (currentState.isRunning) {
+            // 停止服務：委託 ServerController 向守護進程發送停止指令
+            serverController.stop()
+        } else {
+            if (!authRepository.isAuthenticated.value) {
+                NotificationController.showWarning("尚未登入 Google 憑證，請至設定完成授權")
+                return
             }
+            // 啟動服務：委託 ServerController 向守護進程發送啟動指令
+            serverController.start(
+                currentState.host,
+                currentState.port
+            )
         }
     }
 

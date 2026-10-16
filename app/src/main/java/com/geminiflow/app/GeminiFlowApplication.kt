@@ -35,6 +35,8 @@ import com.geminiflow.app.domain.usecase.EnsureAuthUseCase
 import com.geminiflow.app.domain.usecase.StreamChatUseCase
 import com.geminiflow.app.presentation.notification.NotificationController
 import com.geminiflow.app.domain.server.ServerManager
+import com.geminiflow.app.domain.server.ServerController
+import com.geminiflow.app.service.AndroidServerController
 import com.geminiflow.app.server.KtorServerManager
 import com.geminiflow.app.domain.telemetry.notifier.ServerRequestStatusNotifier
 import com.geminiflow.app.service.notification.AndroidSystemStatusNotifierImpl
@@ -111,6 +113,8 @@ class GeminiFlowApplication : Application(), ImageLoaderFactory {
     lateinit var serverRequestStatusNotifier: ServerRequestStatusNotifier
         private set
     lateinit var serverManager: ServerManager
+        private set
+    lateinit var serverController: ServerController
         private set
     lateinit var batteryOptimizationHelper: BatteryOptimizationHelper
         private set
@@ -195,6 +199,7 @@ class GeminiFlowApplication : Application(), ImageLoaderFactory {
         )
 
         batteryOptimizationHelper = BatteryOptimizationHelper(this)
+        serverController = AndroidServerController(this, serverManager)
     }
 
     private fun createNotificationChannel() {

@@ -133,7 +133,7 @@ fun AiLogViewerScreen(
             ApiLogCardContent(
                 log = log,
                 isDark = isDark,
-                onClick = { onNavigateToDetail(log.rawJson) },
+                onClick = { onNavigateToDetail(log.resolveRawJson()) },
                 modifier = itemModifier.alpha(if (isDragging) 0.3f else 1.0f)
             )
         }

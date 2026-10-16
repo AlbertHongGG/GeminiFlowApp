@@ -111,7 +111,8 @@ class ApiLogManager(private val context: Context) {
                     val dateStr = parts[0]
                     val timeStr = parts[1]
                     if (dateStr.length == 8 && timeStr.length >= 6) {
-                        val parsed = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).parse("${dateStr}_${timeStr.take(6)}")
+                        val parsed =
+                            SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).parse("${dateStr}_${timeStr.take(6)}")
                         if (parsed != null) {
                             dtMillis = parsed.time
                             displayTime = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(parsed)
@@ -119,12 +120,24 @@ class ApiLogManager(private val context: Context) {
                     }
                 }
 
-                val content = file.readText()
-                val json = JSONObject(content)
-                if (json.has("agentName")) {
-                    title = json.optString("agentName", title)
+                // 輕量提取 Header，僅讀取開頭區塊提取 agentName 與 durationMs，絕不加載 Base64 圖片巨量酬載至記憶體
+                runCatching {
+                    file.bufferedReader().use { reader ->
+                        val buffer = CharArray(2048)
+                        val readCount = reader.read(buffer)
+                        if (readCount > 0) {
+                            val snippet = String(buffer, 0, readCount)
+                            val agentMatch = """"agentName"\s*:\s*"([^"]+)"""".toRegex().find(snippet)
+                            if (agentMatch != null) {
+                                title = agentMatch.groupValues[1]
+                            }
+                            val durationMatch = """"durationMs"\s*:\s*(\d+)""".toRegex().find(snippet)
+                            if (durationMatch != null) {
+                                durationMs = durationMatch.groupValues[1].toLongOrNull() ?: 0L
+                            }
+                        }
+                    }
                 }
-                durationMs = json.optLong("durationMs", 0L)
 
                 ApiLogModel(
                     id = file.name,
@@ -133,7 +146,6 @@ class ApiLogManager(private val context: Context) {
                     displayTime = displayTime,
                     durationMs = durationMs,
                     timestamp = dtMillis,
-                    rawJson = content,
                     source = "全部"
                 )
             } catch (e: Exception) {
