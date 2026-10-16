@@ -15,17 +15,15 @@ interface ThoughtFilter {
 }
 
 /**
- * 專為 Gemini 模型設計的思考歷程過濾實作。
- * 包含：
- * 1. XML 標籤思維鏈 (<thought>...</thought>, <think>...</think>, <reasoning>...</reasoning>)
- * 2. 串流未閉合標籤思維鏈
- * 3. Gemini 影像生成與思維擴展標題段落 (**Envisioning ...**, **Crafting ...**, **Thinking Process:** 等)
- * 4. 內部圖片佔位符與 Google CDN 網址過濾
+ * 專為 Gemini 模型設計的語意安全思考歷程過濾實作。
+ * 核心原則：
+ * 1. 嚴格限縮思維特徵詞彙（如明確的 XML 標籤與 Imagen 專屬提示標題），絕不誤殺任何合法 Markdown 標題或英文動名詞（如 Writing, Coding, Building）。
+ * 2. 嚴格保護文字格式：絕不任意對串流尾端執行 .trim()，確保換行符號（\n）與空白縮排即時正確傳遞。
  */
 class GeminiThoughtFilter : ThoughtFilter {
 
     private val xmlThoughtRegex = Regex(
-        """<(?:thought|think|reasoning|thought_process)>[\s\S]*?(?:</(?:thought|think|reasoning|thought_process)>|$)""",
+        """<(?:thought|think|reasoning|thought_process)>[\s\S]*?(?:</(?:thought|think|reasoning|thought_process)>|${'$'})""",
         RegexOption.IGNORE_CASE
     )
 
@@ -39,15 +37,15 @@ class GeminiThoughtFilter : ThoughtFilter {
         RegexOption.IGNORE_CASE
     )
 
-    // 匹配思維鏈標題區塊，例如 **Gathering Inspiration for Scene**、**Thinking Process:**、**Envisioning Cyberpunk Taipei** 等
-    // 以現在分詞 (Present Participle, -ing) 或 Thinking/Thought/Reasoning 關鍵結構為特徵，消除有限動詞枚舉漏洞
+    // 精準匹配 Gemini 官方生圖或思維鏈洩漏標題（絕不使用泛用 [A-Za-z]+ing 避免誤殺合法標題）
+    // 僅鎖定確切已知的思維標題片語：Gathering Inspiration、Envisioning、Crafting Prompt、Thinking Process、Thought Process
     private val thoughtBlockRegex = Regex(
-        """(?:\*\*|#+)\s*(?:[A-Za-z]+ing|Thought|Thinking|Reasoning|Reflection|Rationale)\b[^*#\n]*\**[\s\S]*?(?=(?:\n\s*(?:---+|___+)|${'$'}))""",
+        """(?:\*\*|#+)\s*(?:Gathering\s+Inspiration|Envisioning|Crafting\s+Prompt|Thinking\s+Process|Thought\s+Process)\b[^*#\n]*\**[\s\S]*?(?=(?:\n\s*(?:---+|___+)|${'$'}))""",
         RegexOption.IGNORE_CASE
     )
 
     override fun filter(rawText: String): String {
-        if (rawText.isBlank()) return ""
+        if (rawText.isEmpty()) return ""
 
         var text = rawText
 
@@ -60,20 +58,32 @@ class GeminiThoughtFilter : ThoughtFilter {
         // 3. 移除 Google 內部 CDN 圖片網址
         text = googleCdnUrlRegex.replace(text, "")
 
-        // 4. 移除思維鏈標題區塊
+        // 4. 移除專屬思維標題區塊
         text = thoughtBlockRegex.replace(text, "")
 
-        // 5. 去除首尾空白與過多的換行
-        val cleaned = text.trim()
-
-        // 6. 如果剩餘的文字只是未閉合的思考標題（串流過程中剛輸出前半段）
-        if (cleaned.startsWith("**") && !cleaned.contains("\n") && !cleaned.endsWith("**")) {
-            val lower = cleaned.lowercase()
-            if (lower.contains("ing") || lower.contains("think") || lower.contains("thought") || lower.contains("reason")) {
+        // 5. 串流未閉合之生圖思考標題檢測（剛好輸出前半段時）
+        if (text.startsWith("**") && !text.contains("\n") && !text.endsWith("**")) {
+            val lower = text.lowercase()
+            if (lower.contains("gathering inspiration") ||
+                lower.contains("envisioning") ||
+                lower.contains("crafting prompt") ||
+                lower.contains("thinking process") ||
+                lower.contains("thought process")
+            ) {
                 return ""
             }
         }
 
-        return cleaned
+        // 6. 若過濾後僅剩空白字元則返回空字串；若有有效文字，絕對不執行尾端 trim()，保留所有合法換行與空白
+        if (text.all { it.isWhitespace() }) {
+            return ""
+        }
+
+        // 7. 若原始輸入並非以空白字元結尾，但網址被過濾後在末尾殘留了孤立空格，則安全清除該殘留空格
+        if (!rawText.endsWith(" ") && text.endsWith(" ")) {
+            text = text.trimEnd(' ')
+        }
+
+        return text
     }
 }

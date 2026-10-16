@@ -59,4 +59,25 @@ class ThoughtFilterTest {
         val filtered = filter.filter(raw)
         assertEquals("", filtered)
     }
+
+    @Test
+    fun testPreservesLegitimateEnglishGerundHeadings() {
+        val raw1 = "**Writing & Editing**\nHere is how to write."
+        assertEquals(raw1, filter.filter(raw1))
+
+        val raw2 = "## Building an Android App\nStep 1: Install Android Studio."
+        assertEquals(raw2, filter.filter(raw2))
+
+        val raw3 = "1. **Coding & Debugging**\nSupport multiple programming languages."
+        assertEquals(raw3, filter.filter(raw3))
+    }
+
+    @Test
+    fun testPreservesTrailingNewlinesAndSpacesDuringStreaming() {
+        val rawNewlines = "這是一個範例：\n\n"
+        assertEquals(rawNewlines, filter.filter(rawNewlines))
+
+        val rawSpaces = "Hello world "
+        assertEquals(rawSpaces, filter.filter(rawSpaces))
+    }
 }

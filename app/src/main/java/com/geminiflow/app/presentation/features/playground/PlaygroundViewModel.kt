@@ -21,6 +21,7 @@ import kotlinx.coroutines.launch
 import com.geminiflow.app.domain.model.log.ApiLogRecord
 import com.geminiflow.app.domain.model.log.ApiLogRequest
 import com.geminiflow.app.domain.model.log.ApiLogResponse
+import com.geminiflow.app.presentation.features.playground.streaming.StreamingTypewriterEngine
 
 class PlaygroundViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -39,6 +40,7 @@ class PlaygroundViewModel(application: Application) : AndroidViewModel(applicati
     val uiState: StateFlow<PlaygroundUiState> = _uiState.asStateFlow()
 
     private var playgroundJob: Job? = null
+    private var activeTypewriter: StreamingTypewriterEngine? = null
 
     fun selectFamily(family: ModelFamily) {
         _uiState.update { it.copy(selectedFamily = family) }
@@ -79,6 +81,8 @@ class PlaygroundViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun cancelPlaygroundGeneration() {
+        activeTypewriter?.cancel()
+        activeTypewriter = null
         playgroundJob?.cancel()
         playgroundJob = null
         _uiState.update { state ->
@@ -117,9 +121,30 @@ class PlaygroundViewModel(application: Application) : AndroidViewModel(applicati
 
         val startTime = System.currentTimeMillis()
         playgroundJob = viewModelScope.launch {
-            val textBuilder = StringBuilder()
             val mediaAssets = mutableListOf<MediaAsset>()
             var generationError: String? = null
+
+            // 啟動自適應流式平滑打字機排程器（16ms 週期，最高 60 FPS 逐字輸出）
+            val typewriter = StreamingTypewriterEngine(
+                scope = viewModelScope,
+                baseDelayMs = 16L,
+                onTextEmitted = { currentSmoothText ->
+                    _uiState.update { state ->
+                        val updated = state.playgroundMessages.map {
+                            if (it.id == assistantMessage.id) {
+                                it.copy(
+                                    text = currentSmoothText,
+                                    mediaAssets = ArrayList(mediaAssets),
+                                    isStreaming = true,
+                                    deliveryState = MessageDeliveryState.STREAMING
+                                )
+                            } else it
+                        }
+                        state.copy(playgroundMessages = updated)
+                    }
+                }
+            )
+            activeTypewriter = typewriter
 
             try {
                 // 安全異步壓縮圖片為 ImagePayload (避免 OOM)
@@ -144,7 +169,7 @@ class PlaygroundViewModel(application: Application) : AndroidViewModel(applicati
 
                 streamChatUseCase(req).collect { chunk ->
                     if (!chunk.text.isNullOrEmpty()) {
-                        textBuilder.append(chunk.text)
+                        typewriter.enqueue(chunk.text)
                     }
 
                     if (chunk.mediaAsset != null) {
@@ -155,28 +180,31 @@ class PlaygroundViewModel(application: Application) : AndroidViewModel(applicati
                         } else {
                             mediaAssets.add(asset)
                         }
-                    }
 
-                    _uiState.update { state ->
-                        val updated = state.playgroundMessages.map {
-                            if (it.id == assistantMessage.id) {
-                                it.copy(
-                                    text = textBuilder.toString(),
-                                    mediaAssets = ArrayList(mediaAssets),
-                                    isStreaming = true,
-                                    deliveryState = MessageDeliveryState.STREAMING
-                                )
-                            } else it
+                        _uiState.update { state ->
+                            val updated = state.playgroundMessages.map {
+                                if (it.id == assistantMessage.id) {
+                                    it.copy(
+                                        mediaAssets = ArrayList(mediaAssets)
+                                    )
+                                } else it
+                            }
+                            state.copy(playgroundMessages = updated)
                         }
-                        state.copy(playgroundMessages = updated)
                     }
                 }
+
+                // 標記網路串流結束，等待打字機平滑排程將緩衝區字元全數打完
+                typewriter.complete()
+                typewriter.awaitCompletion()
             } catch (e: Exception) {
                 generationError = e.message ?: "連線或生成失敗"
                 Log.e(TAG, "Playground generation failed: $generationError", e)
+                typewriter.cancel()
             } finally {
                 val durationMs = System.currentTimeMillis() - startTime
-                val finalResponseText = textBuilder.toString()
+                val finalResponseText = typewriter.getEmittedText()
+                activeTypewriter = null
 
                 try {
                     val readyImages = mediaAssets.filterIsInstance<MediaAsset.LocalReady>().map { it.localFile.name }
@@ -218,7 +246,7 @@ class PlaygroundViewModel(application: Application) : AndroidViewModel(applicati
                     val updated = state.playgroundMessages.map {
                         if (it.id == assistantMessage.id) {
                             it.copy(
-                                text = textBuilder.toString(),
+                                text = finalResponseText,
                                 mediaAssets = ArrayList(mediaAssets),
                                 isStreaming = false,
                                 deliveryState = finalState,

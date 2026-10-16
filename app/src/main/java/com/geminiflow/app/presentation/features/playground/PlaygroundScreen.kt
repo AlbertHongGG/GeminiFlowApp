@@ -42,6 +42,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.distinctUntilChanged
 import com.geminiflow.app.domain.model.chat.ThinkingLevel
 import com.geminiflow.app.presentation.components.ImmersiveScaffold
@@ -71,15 +73,24 @@ fun PlaygroundScreen(
         PlaygroundModelSpec.findByFamily(uiState.selectedFamily)
     }
 
-    // 監聽訊息增量與串流內容變更：若處於貼底模式，瞬間精準同步至底端錨點
+    // 訊息數量或圖片數量改變時，立即貼底
     val lastMessage = uiState.playgroundMessages.lastOrNull()
-    LaunchedEffect(
-        uiState.playgroundMessages.size,
-        lastMessage?.text?.length,
-        lastMessage?.mediaAssets?.size,
-        lastMessage?.isStreaming
-    ) {
+    LaunchedEffect(uiState.playgroundMessages.size, lastMessage?.mediaAssets?.size) {
         if (uiState.playgroundMessages.isNotEmpty()) {
+            scrollState.scrollToBottomImmediate()
+        }
+    }
+
+    // 串流生成期間：以低頻節流（每 100ms）維持貼底，徹底消除逐字高頻 scrollToItem 引發的 Layout Thrashing
+    LaunchedEffect(lastMessage?.id, lastMessage?.isStreaming) {
+        if (lastMessage?.isStreaming == true) {
+            while (isActive) {
+                if (scrollState.autoScrollEnabled && !listState.isScrollInProgress) {
+                    scrollState.scrollToBottomImmediate()
+                }
+                delay(100L)
+            }
+        } else if (uiState.playgroundMessages.isNotEmpty()) {
             scrollState.scrollToBottomImmediate()
         }
     }

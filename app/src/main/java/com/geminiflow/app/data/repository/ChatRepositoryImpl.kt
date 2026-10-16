@@ -3,6 +3,7 @@ package com.geminiflow.app.data.repository
 import android.util.Log
 import com.geminiflow.app.data.api.GeminiConfig
 import com.geminiflow.app.data.api.GeminiStreamParser
+import com.geminiflow.app.data.api.streaming.StreamFrame
 import com.geminiflow.app.data.api.protocol.GeminiProtocolEngine
 import com.geminiflow.app.data.network.RequestTelemetryTag
 import com.geminiflow.app.domain.model.auth.GeminiTokens
@@ -182,38 +183,60 @@ class ChatRepositoryImpl(
                 val currentLine = line ?: continue
                 if (currentLine.isBlank()) continue
 
-                val exportMeta = parser.extractImageExportMetadata(currentLine)
-                if (exportMeta != null) {
-                    latestExportMetadata = exportMeta
-                }
+                when (val frame = parser.parseLine(currentLine)) {
+                    is StreamFrame.Text -> {
+                        if (frame.conversationId != null) {
+                            latestConversationId = frame.conversationId
+                        }
+                        if (frame.continuationToken != null) {
+                            latestContinuationToken = frame.continuationToken
+                        }
 
-                val (delta, convId, contToken) = parser.extractTextDelta(currentLine)
+                        if (latestConversationId != null && !emittedSession) {
+                            emittedSession = true
+                            emit(
+                                ChatResponseChunk(
+                                    conversationId = latestConversationId,
+                                    continuationToken = latestContinuationToken
+                                )
+                            )
+                            lastEmittedContToken = latestContinuationToken
+                        }
 
-                if (convId != null) {
-                    latestConversationId = convId
-                }
-                if (contToken != null) {
-                    latestContinuationToken = contToken
-                }
+                        emit(ChatResponseChunk(text = frame.delta))
+                    }
+                    is StreamFrame.ImageExport -> {
+                        if (frame.conversationId != null) {
+                            latestConversationId = frame.conversationId
+                        }
+                        if (frame.continuationToken != null) {
+                            latestContinuationToken = frame.continuationToken
+                        }
+                        latestExportMetadata = frame.metadata
+                    }
+                    is StreamFrame.SessionContext -> {
+                        latestConversationId = frame.conversationId
+                        if (frame.continuationToken != null) {
+                            latestContinuationToken = frame.continuationToken
+                        }
 
-                if (latestConversationId != null && !emittedSession) {
-                    emittedSession = true
-                    emit(
-                        ChatResponseChunk(
-                            conversationId = latestConversationId,
-                            continuationToken = latestContinuationToken
-                        )
-                    )
-                    lastEmittedContToken = latestContinuationToken
-                }
-
-                if (!delta.isNullOrEmpty()) {
-                    emit(ChatResponseChunk(text = delta))
-                }
-
-                // 核心防延遲機制：一旦命中結束訊框，立刻主動中斷讀取迴圈！
-                if (parser.isEndOfStream(currentLine)) {
-                    break
+                        if (!emittedSession) {
+                            emittedSession = true
+                            emit(
+                                ChatResponseChunk(
+                                    conversationId = latestConversationId,
+                                    continuationToken = latestContinuationToken
+                                )
+                            )
+                            lastEmittedContToken = latestContinuationToken
+                        }
+                    }
+                    is StreamFrame.EndOfStream -> {
+                        break
+                    }
+                    is StreamFrame.Ignored -> {
+                        // 忽略非訊框內容（如長度標記數字）
+                    }
                 }
             }
         } finally {

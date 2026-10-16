@@ -1,6 +1,7 @@
 package com.geminiflow.app
 
 import com.geminiflow.app.data.api.GeminiStreamParser
+import com.geminiflow.app.data.api.streaming.StreamFrame
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -195,5 +196,42 @@ class GeminiStreamParserTest {
         val (convId, contToken) = parser.extractConversationContext(root)
         assertEquals("c_test_conv_999", convId)
         assertEquals("AwAAAAAAAAAQANM7mBjXKZS5cPttExoLate", contToken)
+    }
+
+    @Test
+    fun testParseLine_singlePassTextDelta() {
+        val parser = GeminiStreamParser()
+        val mockLine = """[["wrb.fr",null,"[null,[\"c_12345\",null,null,null,null,null,null,\"AwAAAAAAAAAQANM7mBjXKZS5cPttExo\"],null,null,[null,null,null,null,[[\"test_id\",[\"Hello world!\"],null,null,null,null,null,null,null,null,[]]]]]"]]"""
+
+        val frame = parser.parseLine(mockLine)
+        assertTrue(frame is StreamFrame.Text)
+        val textFrame = frame as StreamFrame.Text
+        assertEquals("Hello world!", textFrame.delta)
+        assertEquals("c_12345", textFrame.conversationId)
+        assertEquals("AwAAAAAAAAAQANM7mBjXKZS5cPttExo", textFrame.continuationToken)
+    }
+
+    @Test
+    fun testParseLine_preservesNewlinesInDelta() {
+        val parser = GeminiStreamParser()
+        // Line 1: First line
+        val line1 = """[["wrb.fr",null,"[null,null,null,null,[null,null,null,null,[[\"test_id\",[\"First line\"],null,null,null,null,null,null,null,null,[]]]]]"]]"""
+        val frame1 = parser.parseLine(line1)
+        assertTrue(frame1 is StreamFrame.Text)
+        assertEquals("First line", (frame1 as StreamFrame.Text).delta)
+
+        // Line 2: Followed by two newlines (must NOT be dropped as blank)
+        val line2 = """[["wrb.fr",null,"[null,null,null,null,[null,null,null,null,[[\"test_id\",[\"First line\\n\\n\"],null,null,null,null,null,null,null,null,[]]]]]"]]"""
+        val frame2 = parser.parseLine(line2)
+        assertTrue(frame2 is StreamFrame.Text)
+        assertEquals("\n\n", (frame2 as StreamFrame.Text).delta)
+    }
+
+    @Test
+    fun testParseLine_endOfStreamDetection() {
+        val parser = GeminiStreamParser()
+        val endFrame = """[["e",1,null,null,120]]"""
+        val frame = parser.parseLine(endFrame)
+        assertTrue(frame is StreamFrame.EndOfStream)
     }
 }
