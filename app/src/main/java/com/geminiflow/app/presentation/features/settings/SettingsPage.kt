@@ -200,7 +200,7 @@ fun SettingsPage(
                     icon = Icons.Default.NotificationsActive,
                     iconColor = AppColors.primary,
                     title = "請求狀態列系統通知",
-                    subtitle = "在系統狀態列即時顯示外部請求進度與錯誤責任歸因",
+                    subtitle = "即時顯示請求進度與狀態",
                     trailing = {
                         AppSwitch(
                             checked = uiState.isSystemRequestStatusNotificationEnabled,
