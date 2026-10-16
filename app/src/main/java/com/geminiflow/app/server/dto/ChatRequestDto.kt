@@ -11,8 +11,7 @@ data class ChatRequestDto(
     val thinking: String? = null, // "low", "medium", "high"
     val language: String = "zh-TW",
     val images: List<String> = emptyList(), // Base64 編碼字串或 Data URI
-    @SerialName("session_id") val sessionId: String? = null,
-    @SerialName("auto_refresh_cookies") val autoRefreshCookies: Boolean = true
+    @SerialName("session_id") val sessionId: String? = null
 )
 
 @Serializable

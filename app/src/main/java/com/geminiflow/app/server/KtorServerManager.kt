@@ -48,7 +48,8 @@ class KtorServerManager(
     private val imageRepository: ImageRepository,
     private val trafficLogManager: TrafficLogManager,
     private val apiLogManager: ApiLogManager,
-    private val serverRequestStatusNotifier: ServerRequestStatusNotifier
+    private val serverRequestStatusNotifier: ServerRequestStatusNotifier,
+    private val sessionKeepAliveManager: com.geminiflow.app.data.auth.keepalive.SessionKeepAliveManager? = null
 ) : ServerManager {
 
     companion object {
@@ -155,6 +156,7 @@ class KtorServerManager(
                     totalRequests = totalRequests.get(),
                     activeConnections = activeConnections.get()
                 )
+                sessionKeepAliveManager?.start()
                 Log.i(TAG, "Ktor Server successfully started and running on http://$host:$port")
                 Result.success(Unit)
             } catch (e: Exception) {
@@ -185,6 +187,7 @@ class KtorServerManager(
             }
 
             Log.i(TAG, "Initiating server stop...")
+            sessionKeepAliveManager?.stop()
             val transitionStartTime = System.currentTimeMillis()
             _state.value = ServerState.Stopping
 

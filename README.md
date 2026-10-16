@@ -43,7 +43,6 @@ GeminiFlow 在 Android 裝置本機運行嵌入式 Ktor HTTP 伺服器，預設�
 | `session_id` | String | 選填 | `null` | 會話識別碼。傳入相同值即可自動串接多輪上下文記憶。 |
 | `images` | List<String> | 選填 | `[]` | 傳入圖片列表，支援純 Base64 或 Data URI 字串。 |
 | `language` | String | 選填 | `zh-TW` | 回應偏好語系（如 `zh-TW`, `en-US`, `ja-JP`）。 |
-| `auto_refresh_cookies` | Boolean | 選填 | `true` | 當憑證失效時是否自動觸發後台刷新。 |
 
 ---
 

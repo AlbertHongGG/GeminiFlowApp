@@ -5,6 +5,7 @@ import com.geminiflow.app.data.storage.ApiLogManager
 import com.geminiflow.app.data.storage.TrafficLogManager
 import com.geminiflow.app.domain.model.chat.MediaAsset
 import com.geminiflow.app.domain.model.common.AuthenticationRequiredException
+import com.geminiflow.app.domain.model.common.TokenExpiredException
 import com.geminiflow.app.domain.model.log.TrafficLog
 import com.geminiflow.app.domain.usecase.StreamChatUseCase
 import com.geminiflow.app.server.dto.ChatRequestDto
@@ -194,6 +195,23 @@ fun Route.streamRoute(
                     )
                     val err = buildJsonObject {
                         put("error", e.message ?: "未授權")
+                        put("status", 401)
+                    }.toString()
+                    write("event: error\ndata: $err\n\n")
+                    flush()
+                    RouteUtils.recordErrorTraffic(trafficLogManager, "POST", "/stream", 401, t0, clientIp, promptSummary, e.message)
+                } catch (e: TokenExpiredException) {
+                    val attribution = ServerRequestErrorClassifier.classify(e)
+                    serverRequestStatusNotifier.notifyFailed(
+                        ServerRequestLifecycleEvent.Failed(
+                            requestId = requestId,
+                            endpoint = "/stream",
+                            errorAttribution = attribution,
+                            durationMs = System.currentTimeMillis() - t0
+                        )
+                    )
+                    val err = buildJsonObject {
+                        put("error", e.message ?: "憑證過期")
                         put("status", 401)
                     }.toString()
                     write("event: error\ndata: $err\n\n")

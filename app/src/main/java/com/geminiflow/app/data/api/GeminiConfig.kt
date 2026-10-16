@@ -2,6 +2,7 @@ package com.geminiflow.app.data.api
 
 object GeminiConfig {
     const val GEMINI_BASE_URL = "https://gemini.google.com"
+    const val GEMINI_APP_URL = "https://gemini.google.com/app"
     const val GEMINI_REQUEST_URL =
         "https://gemini.google.com/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate"
     const val UPLOAD_IMAGE_URL = "https://push.clients6.google.com/upload/"
@@ -25,6 +26,19 @@ object GeminiConfig {
         "sec-fetch-dest" to "empty",
         "sec-fetch-mode" to "cors",
         "sec-fetch-site" to "same-origin",
+        "user-agent" to DEFAULT_USER_AGENT
+    )
+
+    val BROWSER_NAVIGATION_HEADERS = mapOf(
+        "authority" to "gemini.google.com",
+        "accept" to "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "accept-language" to "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+        "referer" to "https://gemini.google.com/",
+        "sec-fetch-dest" to "document",
+        "sec-fetch-mode" to "navigate",
+        "sec-fetch-site" to "same-origin",
+        "sec-fetch-user" to "?1",
+        "upgrade-insecure-requests" to "1",
         "user-agent" to DEFAULT_USER_AGENT
     )
 

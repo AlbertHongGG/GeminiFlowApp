@@ -8,6 +8,9 @@ class AuthenticationRequiredException(message: String = "Google 登入憑證失�
 class TokenExpiredException(message: String = "Gemini Token 已過期，需要重新整理") :
     GeminiFlowException(message)
 
+class TokenExtractionException(message: String, cause: Throwable? = null) :
+    GeminiFlowException(message, cause)
+
 class NetworkException(message: String, cause: Throwable? = null) :
     GeminiFlowException(message, cause)
 

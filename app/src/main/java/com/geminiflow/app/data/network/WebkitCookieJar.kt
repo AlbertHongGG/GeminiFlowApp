@@ -25,6 +25,7 @@ class WebkitCookieJar(
     private val cookieSaver: ((url: String, cookieString: String) -> Unit)? = { url, cookieString ->
         try {
             CookieManager.getInstance().setCookie(url, cookieString)
+            CookieManager.getInstance().flush()
         } catch (_: Exception) {
         }
     }

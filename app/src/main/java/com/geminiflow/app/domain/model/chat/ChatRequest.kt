@@ -7,8 +7,7 @@ data class ChatRequest(
     val thinking: ThinkingLevel = ThinkingLevel.LOW,
     val language: String = "zh-TW",
     val images: List<ImagePayload> = emptyList(),
-    val sessionId: String? = null,
-    val autoRefreshCookies: Boolean = true
+    val sessionId: String? = null
 ) {
     val modelSpec: ModelSpec get() = ModelSpec.resolve(model, thinking)
 

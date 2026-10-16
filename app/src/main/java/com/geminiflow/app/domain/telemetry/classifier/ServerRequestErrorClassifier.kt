@@ -96,6 +96,13 @@ object ServerRequestErrorClassifier {
                     diagnosticAction = "請開啟 GeminiFlowApp 重新整理登入憑證"
                 )
             }
+            is com.geminiflow.app.domain.model.common.TokenExtractionException -> {
+                ServerRequestErrorAttribution.ServerFault(
+                    statusCode = 502,
+                    summary = throwable.message ?: "無法從 Gemini 首頁解析授權權杖",
+                    diagnosticAction = "請檢查網路連線或確認 Google 服務是否正常"
+                )
+            }
             is RateLimitException -> {
                 ServerRequestErrorAttribution.ServerFault(
                     statusCode = 429,

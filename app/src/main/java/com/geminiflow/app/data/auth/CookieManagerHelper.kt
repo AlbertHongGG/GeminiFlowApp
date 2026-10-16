@@ -3,23 +3,26 @@ package com.geminiflow.app.data.auth
 import android.webkit.CookieManager
 import com.geminiflow.app.data.api.GeminiConfig
 
-class CookieManagerHelper {
+open class CookieManagerHelper {
 
     private val cookieManager: CookieManager
         get() = CookieManager.getInstance()
 
-    fun getGoogleCookies(): Map<String, String> {
-        val cookieString = cookieManager.getCookie(GeminiConfig.GEMINI_BASE_URL) ?: ""
-        return parseCookieString(cookieString)
+    open fun getGoogleCookies(): Map<String, String> {
+        val appCookies = cookieManager.getCookie(GeminiConfig.GEMINI_APP_URL) ?: ""
+        val baseCookies = cookieManager.getCookie(GeminiConfig.GEMINI_BASE_URL) ?: ""
+        val map = parseCookieString(baseCookies).toMutableMap()
+        map.putAll(parseCookieString(appCookies))
+        return map
     }
 
-    fun hasRequiredCookie(): Boolean {
+    open fun hasRequiredCookie(): Boolean {
         val cookies = getGoogleCookies()
         val pSid = cookies[GeminiConfig.REQUIRED_COOKIE_NAME]
         return !pSid.isNullOrBlank()
     }
 
-    fun setCookies(rawCookies: String, domain: String = GeminiConfig.GEMINI_BASE_URL) {
+    open fun setCookies(rawCookies: String, domain: String = GeminiConfig.GEMINI_BASE_URL) {
         val items = rawCookies.split(";")
         for (item in items) {
             val trimmed = item.trim()
@@ -30,7 +33,7 @@ class CookieManagerHelper {
         cookieManager.flush()
     }
 
-    fun clearAllCookies() {
+    open fun clearAllCookies() {
         cookieManager.removeAllCookies(null)
         cookieManager.flush()
     }

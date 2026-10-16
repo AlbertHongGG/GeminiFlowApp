@@ -8,6 +8,7 @@ import android.os.Build
 import com.geminiflow.app.data.attestation.AndroidV8TokenSigner
 import com.geminiflow.app.data.attestation.WaaClient
 import com.geminiflow.app.data.auth.CookieManagerHelper
+import com.geminiflow.app.data.auth.keepalive.SessionKeepAliveManager
 import com.geminiflow.app.data.media.AndroidMediaExporter
 import com.geminiflow.app.data.network.TrafficLoggingInterceptor
 import com.geminiflow.app.data.network.export.GeminiImageExportService
@@ -107,16 +108,24 @@ class GeminiFlowApplication : Application() {
             .addInterceptor(loggingInterceptor)
             .build()
 
+        val credentialStore = com.geminiflow.app.data.auth.WebKitCredentialStore()
+        val tokenExtractor = com.geminiflow.app.data.auth.token.HttpGeminiTokenExtractor(okHttpClient)
+        val tokenManager = com.geminiflow.app.data.auth.token.GeminiTokenManager(credentialStore, tokenExtractor)
+        authRepository = AuthRepositoryImpl(credentialStore, tokenManager)
         cookieHelper = CookieManagerHelper()
-        authRepository = AuthRepositoryImpl(this, okHttpClient, cookieHelper)
         sessionRepository = SessionRepositoryImpl(this)
         val imageExportService = GeminiImageExportService(okHttpClient)
-        imageRepository = ImageRepositoryImpl(this, exportService = imageExportService)
+        imageRepository = ImageRepositoryImpl(this, exportService = imageExportService, authRepository = authRepository)
         imageUploader = GeminiImageUploader(okHttpClient)
         mediaExporter = AndroidMediaExporter(this)
         val waaClient = WaaClient(okHttpClient)
         val tokenSigner = AndroidV8TokenSigner(this, waaClient)
-        chatRepository = ChatRepositoryImpl(okHttpClient, tokenSigner = tokenSigner, imageUploader = imageUploader)
+        chatRepository = ChatRepositoryImpl(
+            client = okHttpClient,
+            authRepository = authRepository,
+            tokenSigner = tokenSigner,
+            imageUploader = imageUploader
+        )
 
         val galleryDataSource = MediaStoreGalleryDataSource(this)
         galleryRepository = GalleryRepositoryImpl(galleryDataSource)
@@ -144,18 +153,19 @@ class GeminiFlowApplication : Application() {
 
         ensureAuthUseCase = EnsureAuthUseCase(authRepository)
         streamChatUseCase = StreamChatUseCase(
-            authRepository = authRepository,
             chatRepository = chatRepository,
             sessionRepository = sessionRepository,
             imageRepository = imageRepository
         )
 
+        val sessionKeepAliveManager = SessionKeepAliveManager(authRepository)
         serverManager = KtorServerManager(
             streamChatUseCase = streamChatUseCase,
             imageRepository = imageRepository,
             trafficLogManager = trafficLogManager,
             apiLogManager = apiLogManager,
-            serverRequestStatusNotifier = serverRequestStatusNotifier
+            serverRequestStatusNotifier = serverRequestStatusNotifier,
+            sessionKeepAliveManager = sessionKeepAliveManager
         )
 
         batteryOptimizationHelper = BatteryOptimizationHelper(this)

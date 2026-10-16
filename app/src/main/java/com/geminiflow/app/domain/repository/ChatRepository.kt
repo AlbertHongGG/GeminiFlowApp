@@ -9,6 +9,11 @@ import kotlinx.coroutines.flow.Flow
 interface ChatRepository {
     suspend fun streamGenerate(
         request: ChatRequest,
+        sessionData: SessionData? = null
+    ): Flow<ChatResponseChunk>
+
+    suspend fun streamGenerate(
+        request: ChatRequest,
         tokens: GeminiTokens,
         cookies: Map<String, String>,
         sessionData: SessionData?

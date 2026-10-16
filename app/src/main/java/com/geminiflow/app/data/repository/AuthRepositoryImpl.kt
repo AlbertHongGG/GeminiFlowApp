@@ -1,145 +1,73 @@
 package com.geminiflow.app.data.repository
 
-import android.content.Context
-import android.util.Log
-import com.geminiflow.app.data.api.GeminiConfig
-import com.geminiflow.app.data.auth.CookieManagerHelper
+import com.geminiflow.app.data.auth.CredentialStore
+import com.geminiflow.app.domain.auth.TokenManager
 import com.geminiflow.app.domain.model.auth.GeminiTokens
-import com.geminiflow.app.domain.model.common.AuthenticationRequiredException
+import com.geminiflow.app.domain.model.auth.SessionState
 import com.geminiflow.app.domain.repository.AuthRepository
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import java.util.regex.Pattern
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
+/**
+ * 領域鑑權門面實作。
+ * 採用組合模式 (Composition over Inheritance)，
+ * 組合本機憑證庫 [CredentialStore] 與動態權杖管理員 [TokenManager]。
+ *
+ * 核心不變量 (Invariants)：
+ * 1. [sessionState] 與 [isAuthenticated] 唯一依託於 [credentialStore.hasRequiredCredential()]。
+ * 2. 任何 HTTP 請求或權杖解析異常，絕對不可被動篡改身分狀態！
+ * 3. 只有在調用 [saveCookies] 或 [clearAuth] 時，身分狀態才會發生狀態躍遷。
+ */
 class AuthRepositoryImpl(
-    private val context: Context,
-    private val client: OkHttpClient,
-    private val cookieHelper: CookieManagerHelper
+    private val credentialStore: CredentialStore,
+    private val tokenManager: TokenManager
 ) : AuthRepository {
 
-    companion object {
-        private const val TAG = "AuthRepositoryImpl"
-        private val SNLM0E_PATTERN_1 = Pattern.compile("""SNlM0e\\":\\"(.*?)\\"""")
-        private val SNLM0E_PATTERN_2 = Pattern.compile("""SNlM0e":"(.*?)"""")
-        private val SID_PATTERN = Pattern.compile(""""FdrFJe":"([\d-]+)"""")
-        private val BL_PATTERN_1 = Pattern.compile(""""cfb2h":"([^"]+)"""")
-        private val BL_PATTERN_2 = Pattern.compile("""cfb2h\\":\\"([^\\"]+)\\"""")
-        private val BL_PATTERN_3 = Pattern.compile("""(boq_gemini-web-uiserver_[0-9a-zA-Z._]+)""")
-    }
+    private val authMutex = Mutex()
 
-    private val _isAuthenticated = MutableStateFlow(cookieHelper.hasRequiredCookie())
+    private val _sessionState = MutableStateFlow<SessionState>(
+        if (credentialStore.hasRequiredCredential()) SessionState.Authenticated() else SessionState.Unauthenticated
+    )
+    override val sessionState: StateFlow<SessionState> = _sessionState.asStateFlow()
+
+    private val _isAuthenticated = MutableStateFlow(credentialStore.hasRequiredCredential())
     override val isAuthenticated: StateFlow<Boolean> = _isAuthenticated.asStateFlow()
 
-    private var cachedTokens: GeminiTokens? = null
-
     override suspend fun getGoogleCookies(): Map<String, String> {
-        return cookieHelper.getGoogleCookies()
+        return credentialStore.getCookies()
     }
 
     override suspend fun saveCookies(cookiesHeader: String) {
-        cookieHelper.setCookies(cookiesHeader)
-        _isAuthenticated.value = cookieHelper.hasRequiredCookie()
-        cachedTokens = null
+        authMutex.withLock {
+            credentialStore.saveCookies(cookiesHeader)
+            val hasCred = credentialStore.hasRequiredCredential()
+            _sessionState.value = if (hasCred) SessionState.Authenticated() else SessionState.Unauthenticated
+            _isAuthenticated.value = hasCred
+            tokenManager.invalidateCache()
+        }
     }
 
     override suspend fun clearAuth() {
-        cookieHelper.clearAllCookies()
-        cachedTokens = null
-        _isAuthenticated.value = false
-    }
-
-    override suspend fun ensureValidTokens(forceRefresh: Boolean): GeminiTokens = withContext(Dispatchers.IO) {
-        if (!forceRefresh && cachedTokens != null) {
-            return@withContext cachedTokens!!
-        }
-
-        val cookies = cookieHelper.getGoogleCookies()
-        val pSid = cookies[GeminiConfig.REQUIRED_COOKIE_NAME]
-        if (pSid.isNullOrBlank()) {
+        authMutex.withLock {
+            credentialStore.clearCredentials()
+            tokenManager.invalidateCache()
+            _sessionState.value = SessionState.Unauthenticated
             _isAuthenticated.value = false
-            throw AuthenticationRequiredException("缺少必要的 Google 驗證憑證 (${GeminiConfig.REQUIRED_COOKIE_NAME})，請在 App 內登入 Google 帳號。")
-        }
-
-        val tokens = fetchTokensViaHttp(cookies)
-        if (tokens != null) {
-            cachedTokens = tokens
-            _isAuthenticated.value = true
-            return@withContext tokens
-        }
-
-        _isAuthenticated.value = false
-        throw AuthenticationRequiredException("無法從 Gemini 首頁解析授權權杖 (SNlM0e)，您的登入可能已過期或被安全驗證阻擋，請重新登入。")
-    }
-
-    private fun fetchTokensViaHttp(cookies: Map<String, String>): GeminiTokens? {
-        val cookieHeader = cookies.entries.joinToString("; ") { "${it.key}=${it.value}" }
-        val request = Request.Builder()
-            .url(GeminiConfig.GEMINI_BASE_URL)
-            .header("User-Agent", GeminiConfig.DEFAULT_USER_AGENT)
-            .header("Cookie", cookieHeader)
-            .get()
-            .build()
-
-        return try {
-            val response = client.newCall(request).execute()
-            if (!response.isSuccessful) {
-                Log.w(TAG, "HTTP fetch tokens returned status: ${response.code}")
-                response.close()
-                return null
-            }
-
-            val html = response.body?.string() ?: ""
-            response.close()
-            extractTokensFromHtml(html)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error fetching tokens via HTTP: ${e.message}", e)
-            null
         }
     }
 
-    fun extractTokensFromHtml(html: String): GeminiTokens? {
-        var snlm0e: String? = null
-        var matcher = SNLM0E_PATTERN_1.matcher(html)
-        if (matcher.find()) {
-            snlm0e = matcher.group(1)
-        } else {
-            matcher = SNLM0E_PATTERN_2.matcher(html)
-            if (matcher.find()) {
-                snlm0e = matcher.group(1)
-            }
-        }
+    override suspend fun getValidTokens(): GeminiTokens {
+        return tokenManager.getValidTokens()
+    }
 
-        if (snlm0e.isNullOrBlank()) {
-            return null
-        }
+    override suspend fun forceRefreshToken(): GeminiTokens {
+        return tokenManager.forceRefreshToken()
+    }
 
-        var sid: String? = null
-        val sidMatcher = SID_PATTERN.matcher(html)
-        if (sidMatcher.find()) {
-            sid = sidMatcher.group(1)
-        }
-
-        var serverBl: String? = null
-        var blMatcher = BL_PATTERN_1.matcher(html)
-        if (blMatcher.find()) {
-            serverBl = blMatcher.group(1)
-        } else {
-            blMatcher = BL_PATTERN_2.matcher(html)
-            if (blMatcher.find()) {
-                serverBl = blMatcher.group(1)
-            } else {
-                blMatcher = BL_PATTERN_3.matcher(html)
-                if (blMatcher.find()) {
-                    serverBl = blMatcher.group(1)
-                }
-            }
-        }
-
-        return GeminiTokens(snlm0e = snlm0e, sid = sid, serverBl = serverBl)
+    override suspend fun ensureValidTokens(forceRefresh: Boolean): GeminiTokens {
+        return if (forceRefresh) forceRefreshToken() else getValidTokens()
     }
 }

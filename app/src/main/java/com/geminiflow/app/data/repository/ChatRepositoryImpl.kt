@@ -12,6 +12,7 @@ import com.geminiflow.app.domain.model.chat.ChatResponseChunk
 import com.geminiflow.app.domain.model.chat.ImagePayload
 import com.geminiflow.app.domain.model.common.NetworkException
 import com.geminiflow.app.domain.model.common.TokenExpiredException
+import com.geminiflow.app.domain.repository.AuthRepository
 import com.geminiflow.app.domain.repository.ChatRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -34,6 +35,7 @@ import com.geminiflow.app.domain.repository.ImageUploader
 
 class ChatRepositoryImpl(
     private val client: OkHttpClient,
+    private val authRepository: AuthRepository? = null,
     private val protocolEngine: GeminiProtocolEngine = GeminiProtocolEngine(GeminiConfig.REQUEST_BL_PARAM),
     private val tokenSigner: TokenSigner? = null,
     private val imageUploader: ImageUploader = GeminiImageUploader(client)
@@ -41,6 +43,30 @@ class ChatRepositoryImpl(
 
     companion object {
         private const val TAG = "ChatRepositoryImpl"
+    }
+
+    override suspend fun streamGenerate(
+        request: ChatRequest,
+        sessionData: SessionData?
+    ): Flow<ChatResponseChunk> = flow {
+        val auth = authRepository
+            ?: throw IllegalStateException("未配置 AuthRepository，無法自動獲取對話授權憑證")
+        var tokens = auth.getValidTokens()
+        var cookies = auth.getGoogleCookies()
+
+        try {
+            streamGenerate(request, tokens, cookies, sessionData).collect { chunk ->
+                emit(chunk)
+            }
+        } catch (e: TokenExpiredException) {
+            Log.w(TAG, "Google authorization token expired. Transparently refreshing and retrying once...")
+            tokens = auth.forceRefreshToken()
+            cookies = auth.getGoogleCookies()
+
+            streamGenerate(request, tokens, cookies, sessionData).collect { chunk ->
+                emit(chunk)
+            }
+        }
     }
 
     override suspend fun streamGenerate(

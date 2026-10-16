@@ -13,6 +13,14 @@ interface ImageRepository {
      * 下載高解析度原圖（嚴格透過 Google c8o8Fe RPC 專屬導出管線）。
      * 導出失敗或憑證缺失時顯性拋出 ImageDownloadException，絕不掩蓋或降級。
      */
+    /**
+     * 下載高解析度原圖（內部自主委託 AuthRepository 獲取最新憑證）。
+     */
+    suspend fun downloadExportedImage(
+        metadata: ImageExportMetadata,
+        modelName: String
+    ): File
+
     suspend fun downloadExportedImage(
         metadata: ImageExportMetadata,
         modelName: String,

@@ -50,8 +50,7 @@ object RouteUtils {
             thinking = thinking,
             language = dto.language,
             images = imagePayloads,
-            sessionId = dto.sessionId,
-            autoRefreshCookies = dto.autoRefreshCookies
+            sessionId = dto.sessionId
         )
     }
 

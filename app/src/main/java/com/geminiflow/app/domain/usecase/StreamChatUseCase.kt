@@ -1,13 +1,10 @@
 package com.geminiflow.app.domain.usecase
 
 import android.util.Log
-import com.geminiflow.app.domain.model.auth.GeminiTokens
 import com.geminiflow.app.domain.model.auth.SessionData
 import com.geminiflow.app.domain.model.chat.ChatRequest
 import com.geminiflow.app.domain.model.chat.ChatResponseChunk
 import com.geminiflow.app.domain.model.chat.MediaAsset
-import com.geminiflow.app.domain.model.common.TokenExpiredException
-import com.geminiflow.app.domain.repository.AuthRepository
 import com.geminiflow.app.domain.repository.ChatRepository
 import com.geminiflow.app.domain.repository.ImageRepository
 import com.geminiflow.app.domain.repository.SessionRepository
@@ -16,7 +13,6 @@ import kotlinx.coroutines.flow.flow
 import java.util.UUID
 
 class StreamChatUseCase(
-    private val authRepository: AuthRepository,
     private val chatRepository: ChatRepository,
     private val sessionRepository: SessionRepository,
     private val imageRepository: ImageRepository
@@ -30,35 +26,17 @@ class StreamChatUseCase(
             sessionRepository.getSession(request.sessionId)
         } else null
 
-        var tokens = authRepository.ensureValidTokens(forceRefresh = false)
-        var cookies = authRepository.getGoogleCookies()
-
-        try {
-            executeChatStream(request, tokens, cookies, sessionData).collect { chunk ->
-                emit(chunk)
-            }
-        } catch (e: TokenExpiredException) {
-            if (!request.autoRefreshCookies) {
-                throw e
-            }
-            Log.i(TAG, "Token expired during chat stream. Forcing token refresh and retrying...")
-            tokens = authRepository.ensureValidTokens(forceRefresh = true)
-            cookies = authRepository.getGoogleCookies()
-
-            executeChatStream(request, tokens, cookies, sessionData).collect { chunk ->
-                emit(chunk)
-            }
+        executeChatStream(request, sessionData).collect { chunk ->
+            emit(chunk)
         }
     }
 
     private suspend fun executeChatStream(
         request: ChatRequest,
-        tokens: GeminiTokens,
-        cookies: Map<String, String>,
         sessionData: SessionData?
     ): Flow<ChatResponseChunk> = flow {
         var currentSession = sessionData
-        chatRepository.streamGenerate(request, tokens, cookies, currentSession).collect { chunk ->
+        chatRepository.streamGenerate(request, currentSession).collect { chunk ->
             if (chunk.conversationId != null && !request.sessionId.isNullOrBlank()) {
                 val baseSession = currentSession ?: SessionData(sessionId = request.sessionId)
                 val updatedSession = baseSession.copy(conversationId = chunk.conversationId)
@@ -85,12 +63,9 @@ class StreamChatUseCase(
                 emit(ChatResponseChunk(mediaAsset = MediaAsset.Downloading(id = assetId, rawUrl = previewUrl, exportMetadata = exportMeta)))
 
                 try {
-                    val validTokens = tokens ?: throw TokenExpiredException("缺少 Google 帳號授權 Token，無法執行 c8o8Fe 原圖導出")
                     val downloadedFile = imageRepository.downloadExportedImage(
                         metadata = exportMeta,
-                        modelName = request.model,
-                        tokens = validTokens,
-                        cookies = cookies
+                        modelName = request.model
                     )
                     val mimeType = if (downloadedFile.extension.equals("jpg", true) || downloadedFile.extension.equals("jpeg", true)) {
                         "image/jpeg"

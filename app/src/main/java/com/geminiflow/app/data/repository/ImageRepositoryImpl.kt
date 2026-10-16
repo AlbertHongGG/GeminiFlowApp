@@ -8,6 +8,7 @@ import com.geminiflow.app.data.network.WebkitCookieJar
 import com.geminiflow.app.domain.model.cache.CachedImageItem
 import com.geminiflow.app.domain.model.common.ImageDownloadException
 import com.geminiflow.app.domain.model.export.ImageExportMetadata
+import com.geminiflow.app.domain.repository.AuthRepository
 import com.geminiflow.app.domain.repository.ImageRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -30,7 +31,8 @@ class ImageRepositoryImpl(
     customClient: OkHttpClient? = null,
     imagesDirProvider: (() -> File)? = null,
     private val urlNormalizer: com.geminiflow.app.data.network.ImageUrlNormalizer = com.geminiflow.app.data.network.GoogleCdnUrlNormalizer(),
-    private val exportService: com.geminiflow.app.domain.repository.ImageExportService? = null
+    private val exportService: com.geminiflow.app.domain.repository.ImageExportService? = null,
+    private val authRepository: AuthRepository? = null
 ) : ImageRepository {
 
     companion object {
@@ -56,6 +58,17 @@ class ImageRepositoryImpl(
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
         .build()
+
+    override suspend fun downloadExportedImage(
+        metadata: ImageExportMetadata,
+        modelName: String
+    ): File = withContext(Dispatchers.IO) {
+        val auth = authRepository
+            ?: throw ImageDownloadException("未配置 AuthRepository，無法自動取得原圖導出憑證")
+        val validTokens = auth.getValidTokens()
+        val cookies = auth.getGoogleCookies()
+        downloadExportedImage(metadata, modelName, validTokens, cookies)
+    }
 
     override suspend fun downloadExportedImage(
         metadata: ImageExportMetadata,
