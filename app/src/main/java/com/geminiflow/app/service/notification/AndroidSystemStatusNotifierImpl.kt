@@ -81,7 +81,8 @@ class AndroidSystemStatusNotifierImpl(
                 .setContentText(text)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
                 .setContentIntent(createContentIntent())
-                .setOngoing(true)
+                .setOngoing(false)
+                .setAutoCancel(true)
                 .setProgress(0, 0, true)
                 .setOnlyAlertOnce(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -109,7 +110,8 @@ class AndroidSystemStatusNotifierImpl(
                 .setContentText(text)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
                 .setContentIntent(createContentIntent())
-                .setOngoing(true)
+                .setOngoing(false)
+                .setAutoCancel(true)
                 .setProgress(0, 0, true)
                 .setOnlyAlertOnce(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -179,6 +181,19 @@ class AndroidSystemStatusNotifierImpl(
             notificationManager.notify(NOTIFICATION_ID, notification)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to post notifyFailed: ${e.message}", e)
+        }
+    }
+
+    override fun clear(requestId: String?) {
+        try {
+            if (requestId != null) {
+                throttler.release(requestId)
+            } else {
+                throttler.clear()
+            }
+            notificationManager.cancel(NOTIFICATION_ID)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to clear status notification: ${e.message}", e)
         }
     }
 }

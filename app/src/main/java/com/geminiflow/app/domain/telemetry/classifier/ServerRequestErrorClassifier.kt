@@ -9,8 +9,12 @@ import com.geminiflow.app.domain.model.common.PayloadException
 import com.geminiflow.app.domain.model.common.RateLimitException
 import com.geminiflow.app.domain.model.common.TokenExpiredException
 import com.geminiflow.app.domain.model.common.VmExecutionException
+import com.geminiflow.app.domain.model.common.StreamingActivityTimeoutException
 import com.geminiflow.app.domain.telemetry.model.ServerRequestErrorAttribution
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.serialization.SerializationException
+import java.nio.channels.ClosedChannelException
 
 /**
  * 外部請求錯誤診斷與歸因器
@@ -61,6 +65,20 @@ object ServerRequestErrorClassifier {
                         statusCode = 429,
                         summary = message.ifBlank { "頻率限制 (Too Many Requests)" },
                         diagnosticAction = "觸發 Google API 頻率限制，請暫緩呼叫頻率並稍候重試"
+                    )
+                }
+                manualStatusCode == 499 -> {
+                    return ServerRequestErrorAttribution.ClientFault(
+                        statusCode = 499,
+                        summary = message.ifBlank { "呼叫端已主動中斷連線" },
+                        diagnosticAction = "外部呼叫端在回應完成前中斷了 HTTP 通訊管道"
+                    )
+                }
+                manualStatusCode == 504 -> {
+                    return ServerRequestErrorAttribution.ServerFault(
+                        statusCode = 504,
+                        summary = message.ifBlank { "串流傳輸逾時" },
+                        diagnosticAction = "超過指定時間未收到上游資料，已主動終止連線防止卡死"
                     )
                 }
                 manualStatusCode in 400..499 -> {
@@ -147,6 +165,22 @@ object ServerRequestErrorClassifier {
                     diagnosticAction = "請檢查呼叫端發送的 JSON 格式與各欄位資料型態"
                 )
             }
+            is StreamingActivityTimeoutException,
+            is TimeoutCancellationException -> {
+                ServerRequestErrorAttribution.ServerFault(
+                    statusCode = 504,
+                    summary = "串流傳輸逾時：${throwable.message ?: "上游超過 30 秒未發送資料"}",
+                    diagnosticAction = "上游 Google Gemini 未如期回應或網路阻斷，系統已主動終止連線防止卡死"
+                )
+            }
+            is CancellationException,
+            is ClosedChannelException -> {
+                ServerRequestErrorAttribution.ClientFault(
+                    statusCode = 499,
+                    summary = "呼叫端已主動中斷連線 (${throwable.message ?: "連線已關閉"})",
+                    diagnosticAction = "外部呼叫端在回應完成前中斷了 HTTP 連線或已逾時關閉"
+                )
+            }
             is IllegalArgumentException -> {
                 ServerRequestErrorAttribution.ClientFault(
                     statusCode = 400,
@@ -155,8 +189,15 @@ object ServerRequestErrorClassifier {
                 )
             }
             else -> {
-                // 檢查是否為 JSON 解析相關訊息
-                if (message.contains("JsonConvertException", ignoreCase = true) ||
+                if (message.contains("Broken pipe", ignoreCase = true) ||
+                    message.contains("Connection reset", ignoreCase = true)
+                ) {
+                    ServerRequestErrorAttribution.ClientFault(
+                        statusCode = 499,
+                        summary = "通訊管道已關閉 (Broken pipe / Connection reset)",
+                        diagnosticAction = "呼叫端在伺服器傳輸過程中中斷了 Socket 連線"
+                    )
+                } else if (message.contains("JsonConvertException", ignoreCase = true) ||
                     message.contains("deserialize", ignoreCase = true) ||
                     message.contains("Illegal input", ignoreCase = true)
                 ) {

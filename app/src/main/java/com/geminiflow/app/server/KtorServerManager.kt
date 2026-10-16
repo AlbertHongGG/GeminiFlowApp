@@ -200,6 +200,7 @@ class KtorServerManager(
                 }
                 serverEngine = null
                 activeConnections.set(0)
+                serverRequestStatusNotifier.clear()
 
                 // 視覺鎖存保障：確保 Stopping 狀態維持至少 MIN_VISUAL_LATCH_MS，杜絕瞬跳倒置
                 val elapsed = System.currentTimeMillis() - transitionStartTime
@@ -214,6 +215,7 @@ class KtorServerManager(
                 Log.e(TAG, "Error while stopping Ktor Server: ${e.message}", e)
                 serverEngine = null
                 activeConnections.set(0)
+                serverRequestStatusNotifier.clear()
                 val elapsed = System.currentTimeMillis() - transitionStartTime
                 if (elapsed < MIN_VISUAL_LATCH_MS) {
                     delay(MIN_VISUAL_LATCH_MS - elapsed)

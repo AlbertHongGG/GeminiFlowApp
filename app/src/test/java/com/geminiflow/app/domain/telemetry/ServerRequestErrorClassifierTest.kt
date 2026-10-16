@@ -4,14 +4,19 @@ import com.geminiflow.app.domain.model.common.AuthenticationRequiredException
 import com.geminiflow.app.domain.model.common.NetworkException
 import com.geminiflow.app.domain.model.common.PayloadException
 import com.geminiflow.app.domain.model.common.RateLimitException
+import com.geminiflow.app.domain.model.common.StreamingActivityTimeoutException
 import com.geminiflow.app.domain.model.common.TokenExpiredException
 import com.geminiflow.app.domain.telemetry.classifier.ServerRequestErrorClassifier
 import com.geminiflow.app.domain.telemetry.model.ServerRequestErrorAttribution
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.serialization.SerializationException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
+import java.nio.channels.ClosedChannelException
 
 class ServerRequestErrorClassifierTest {
 
@@ -75,6 +80,70 @@ class ServerRequestErrorClassifierTest {
     }
 
     @Test
+    fun testStreamingActivityTimeoutExceptionClassifiedAsServerFault504() {
+        val ex = StreamingActivityTimeoutException()
+        val attribution = ServerRequestErrorClassifier.classify(ex)
+
+        assertTrue(attribution is ServerRequestErrorAttribution.ServerFault)
+        assertEquals(504, attribution.statusCode)
+        assertTrue(attribution.summary.contains("30 秒"))
+    }
+
+    @Test
+    fun testTimeoutCancellationExceptionClassifiedAsServerFault504() = kotlinx.coroutines.runBlocking {
+        val ex = try {
+            kotlinx.coroutines.withTimeout(1L) {
+                kotlinx.coroutines.delay(50L)
+            }
+            null
+        } catch (e: TimeoutCancellationException) {
+            e
+        }
+        val attribution = ServerRequestErrorClassifier.classify(ex)
+
+        assertTrue(attribution is ServerRequestErrorAttribution.ServerFault)
+        assertEquals(504, attribution.statusCode)
+        assertTrue(attribution.summary.contains("逾時"))
+    }
+
+    @Test
+    fun testCancellationExceptionClassifiedAsClientFault499() {
+        val ex = CancellationException("Client cancelled request")
+        val attribution = ServerRequestErrorClassifier.classify(ex)
+
+        assertTrue(attribution is ServerRequestErrorAttribution.ClientFault)
+        assertEquals(499, attribution.statusCode)
+        assertTrue(attribution.summary.contains("中斷連線"))
+    }
+
+    @Test
+    fun testClosedChannelExceptionClassifiedAsClientFault499() {
+        val ex = ClosedChannelException()
+        val attribution = ServerRequestErrorClassifier.classify(ex)
+
+        assertTrue(attribution is ServerRequestErrorAttribution.ClientFault)
+        assertEquals(499, attribution.statusCode)
+    }
+
+    @Test
+    fun testBrokenPipeIOExceptionClassifiedAsClientFault499() {
+        val ex = IOException("java.io.IOException: Broken pipe")
+        val attribution = ServerRequestErrorClassifier.classify(ex)
+
+        assertTrue(attribution is ServerRequestErrorAttribution.ClientFault)
+        assertEquals(499, attribution.statusCode)
+    }
+
+    @Test
+    fun testConnectionResetClassifiedAsClientFault499() {
+        val ex = IOException("Connection reset by peer")
+        val attribution = ServerRequestErrorClassifier.classify(ex)
+
+        assertTrue(attribution is ServerRequestErrorAttribution.ClientFault)
+        assertEquals(499, attribution.statusCode)
+    }
+
+    @Test
     fun testManual400StatusCodeClassifiedAsClientFault() {
         val attribution = ServerRequestErrorClassifier.classify(
             throwable = null,
@@ -85,6 +154,28 @@ class ServerRequestErrorClassifierTest {
         assertTrue(attribution is ServerRequestErrorAttribution.ClientFault)
         assertEquals(400, attribution.statusCode)
         assertEquals("缺少模型參數 (model)", attribution.summary)
+    }
+
+    @Test
+    fun testManual499StatusCodeClassifiedAsClientFault() {
+        val attribution = ServerRequestErrorClassifier.classify(
+            throwable = null,
+            manualStatusCode = 499
+        )
+
+        assertTrue(attribution is ServerRequestErrorAttribution.ClientFault)
+        assertEquals(499, attribution.statusCode)
+    }
+
+    @Test
+    fun testManual504StatusCodeClassifiedAsServerFault() {
+        val attribution = ServerRequestErrorClassifier.classify(
+            throwable = null,
+            manualStatusCode = 504
+        )
+
+        assertTrue(attribution is ServerRequestErrorAttribution.ServerFault)
+        assertEquals(504, attribution.statusCode)
     }
 
     @Test

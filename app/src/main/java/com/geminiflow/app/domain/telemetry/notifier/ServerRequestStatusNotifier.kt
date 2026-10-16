@@ -26,4 +26,10 @@ interface ServerRequestStatusNotifier {
      * 當請求處理過程發生錯誤時觸發
      */
     fun notifyFailed(event: ServerRequestLifecycleEvent.Failed)
+
+    /**
+     * 強制撤銷/清除狀態通知（全域或指定 requestId）。
+     * 用於服務停止、App 銷毀、開關關閉或兜底清理。
+     */
+    fun clear(requestId: String? = null)
 }

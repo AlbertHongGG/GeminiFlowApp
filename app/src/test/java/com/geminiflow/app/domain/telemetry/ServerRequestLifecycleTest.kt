@@ -4,6 +4,7 @@ import com.geminiflow.app.domain.telemetry.classifier.ServerRequestErrorClassifi
 import com.geminiflow.app.domain.telemetry.model.ServerRequestErrorAttribution
 import com.geminiflow.app.domain.telemetry.model.ServerRequestLifecycleEvent
 import com.geminiflow.app.domain.telemetry.notifier.ServerRequestStatusNotifier
+import com.geminiflow.app.domain.telemetry.session.RequestTelemetrySession
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -15,6 +16,8 @@ class ServerRequestLifecycleTest {
         var isEnabled: Boolean = true
     ) : ServerRequestStatusNotifier {
         val events = mutableListOf<ServerRequestLifecycleEvent>()
+        var clearCount = 0
+        var lastClearedRequestId: String? = null
 
         override fun notifyReceived(event: ServerRequestLifecycleEvent.Received) {
             if (isEnabled) events.add(event)
@@ -30,6 +33,11 @@ class ServerRequestLifecycleTest {
 
         override fun notifyFailed(event: ServerRequestLifecycleEvent.Failed) {
             if (isEnabled) events.add(event)
+        }
+
+        override fun clear(requestId: String?) {
+            clearCount++
+            lastClearedRequestId = requestId
         }
     }
 
@@ -158,5 +166,66 @@ class ServerRequestLifecycleTest {
 
         // 當功能開關關閉時，不應記錄任何事件
         assertTrue(notifier.events.isEmpty())
+    }
+
+    @Test
+    fun testRequestTelemetrySessionEnsuresTerminalStateOnFailure() {
+        val notifier = FakeServerRequestStatusNotifier(isEnabled = true)
+        val session = RequestTelemetrySession(
+            requestId = "req-session-test",
+            endpoint = "/stream",
+            clientIp = "127.0.0.1",
+            notifier = notifier
+        )
+
+        session.markReceived(model = "gemini-2.5-flash", promptSnippet = "test")
+        assertEquals(1, notifier.events.size)
+
+        // 未主動呼叫 markCompleted / markFailed，模擬協程中斷或拋錯
+        session.ensureTerminalState("異常退出測試")
+
+        assertTrue(session.isCompletedOrFailed)
+        assertEquals(2, notifier.events.size)
+        val failed = notifier.events[1] as ServerRequestLifecycleEvent.Failed
+        assertEquals(500, failed.errorAttribution.statusCode)
+
+        // 再次呼叫 ensureTerminalState 或 markCompleted 應被 CAS 攔截，不可重複發送終態
+        session.ensureTerminalState("再次退出")
+        assertEquals(2, notifier.events.size)
+        assertFalse(session.markCompleted(200, 100))
+        assertEquals(2, notifier.events.size)
+    }
+
+    @Test
+    fun testRequestTelemetrySessionAtomicTerminalState() {
+        val notifier = FakeServerRequestStatusNotifier(isEnabled = true)
+        val session = RequestTelemetrySession(
+            requestId = "req-session-atomic",
+            endpoint = "/chat",
+            clientIp = "127.0.0.1",
+            notifier = notifier
+        )
+
+        assertTrue(session.markCompleted(200, 50))
+        // 第二次調用 markCompleted 應返回 false
+        assertFalse(session.markCompleted(200, 50))
+        // 調用 markFailed 應返回 null
+        val attribution = session.markFailed(manualStatusCode = 500)
+        assertEquals(null, attribution)
+
+        assertEquals(1, notifier.events.size)
+        assertTrue(notifier.events[0] is ServerRequestLifecycleEvent.Completed)
+    }
+
+    @Test
+    fun testClearNotification() {
+        val notifier = FakeServerRequestStatusNotifier(isEnabled = true)
+        notifier.clear("req-999")
+        assertEquals(1, notifier.clearCount)
+        assertEquals("req-999", notifier.lastClearedRequestId)
+
+        notifier.clear(null)
+        assertEquals(2, notifier.clearCount)
+        assertEquals(null, notifier.lastClearedRequestId)
     }
 }

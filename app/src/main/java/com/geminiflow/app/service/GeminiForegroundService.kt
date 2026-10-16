@@ -110,6 +110,7 @@ class GeminiForegroundService : Service() {
                 when (state) {
                     is ServerState.Stopped, is ServerState.Failed -> {
                         Log.i(TAG, "ServerState is $state. Tearing down foreground notification and stopping service.")
+                        app.serverRequestStatusNotifier.clear()
                         stopForeground(STOP_FOREGROUND_REMOVE)
                         stopSelf()
                     }
@@ -187,6 +188,9 @@ class GeminiForegroundService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         releaseWakeLock()
+        runCatching {
+            (application as? GeminiFlowApplication)?.serverRequestStatusNotifier?.clear()
+        }
         serviceScope.cancel()
         Log.i(TAG, "GeminiForegroundService destroyed cleanly.")
     }

@@ -31,3 +31,7 @@ class ChallengeFetchException(message: String, cause: Throwable? = null) :
 
 class VmExecutionException(message: String, cause: Throwable? = null) :
     AttestationException(message, cause)
+
+class StreamingActivityTimeoutException(message: String = "串流傳輸逾時，超過 30 秒未收到任何上游資料") :
+    GeminiFlowException(message)
+

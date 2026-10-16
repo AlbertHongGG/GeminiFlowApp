@@ -98,6 +98,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 enabled
             )
             .apply()
+        if (!enabled) {
+            app.serverRequestStatusNotifier.clear()
+        }
         _uiState.update { it.copy(isSystemRequestStatusNotificationEnabled = enabled) }
     }
 
