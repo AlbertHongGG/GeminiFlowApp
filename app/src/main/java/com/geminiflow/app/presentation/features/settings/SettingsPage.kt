@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -193,6 +194,19 @@ fun SettingsPage(
                     title = "電池最佳化",
                     subtitle = if (uiState.isBatteryUnrestricted) "已設置無限制" else "受系統限制",
                     onTap = onOpenBatteryGuide
+                )
+                SettingsDivider()
+                SettingsTile(
+                    icon = Icons.Default.NotificationsActive,
+                    iconColor = AppColors.primary,
+                    title = "請求狀態列系統通知",
+                    subtitle = "在系統狀態列即時顯示外部請求進度與錯誤責任歸因",
+                    trailing = {
+                        AppSwitch(
+                            checked = uiState.isSystemRequestStatusNotificationEnabled,
+                            onCheckedChange = { viewModel.setSystemRequestStatusNotificationEnabled(it) }
+                        )
+                    }
                 )
             }
 

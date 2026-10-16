@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.geminiflow.app.GeminiFlowApplication
 import com.geminiflow.app.service.BootReceiver
+import com.geminiflow.app.service.notification.AndroidSystemStatusNotifierImpl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -42,12 +43,19 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun loadSettings() {
-        val prefs = app.getSharedPreferences("gemini_flow_settings", Context.MODE_PRIVATE)
+        val prefs = app.getSharedPreferences(
+            AndroidSystemStatusNotifierImpl.PREFS_NAME,
+            Context.MODE_PRIVATE
+        )
         val host = prefs.getString("server_host", "127.0.0.1") ?: "127.0.0.1"
         val port = prefs.getInt("server_port", 5000)
         val autoStart = prefs.getBoolean(BootReceiver.PREF_KEY_AUTO_START, false)
         val notifLogging = notificationLogManager.isLoggingEnabled()
         val apiLogging = apiLogManager.isLoggingEnabled()
+        val systemRequestStatusNotif = prefs.getBoolean(
+            AndroidSystemStatusNotifierImpl.PREF_KEY_SYSTEM_REQUEST_STATUS_NOTIFICATION_ENABLED,
+            true
+        )
 
         _uiState.update {
             it.copy(
@@ -55,7 +63,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 serverPort = port,
                 autoStartOnBoot = autoStart,
                 isNotificationLoggingEnabled = notifLogging,
-                isApiLoggingEnabled = apiLogging
+                isApiLoggingEnabled = apiLogging,
+                isSystemRequestStatusNotificationEnabled = systemRequestStatusNotif
             )
         }
     }
@@ -76,6 +85,20 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setApiLoggingEnabled(enabled: Boolean) {
         apiLogManager.setLoggingEnabled(enabled)
         _uiState.update { it.copy(isApiLoggingEnabled = enabled) }
+    }
+
+    fun setSystemRequestStatusNotificationEnabled(enabled: Boolean) {
+        val prefs = app.getSharedPreferences(
+            AndroidSystemStatusNotifierImpl.PREFS_NAME,
+            Context.MODE_PRIVATE
+        )
+        prefs.edit()
+            .putBoolean(
+                AndroidSystemStatusNotifierImpl.PREF_KEY_SYSTEM_REQUEST_STATUS_NOTIFICATION_ENABLED,
+                enabled
+            )
+            .apply()
+        _uiState.update { it.copy(isSystemRequestStatusNotificationEnabled = enabled) }
     }
 
     fun refreshBatteryStatus() {

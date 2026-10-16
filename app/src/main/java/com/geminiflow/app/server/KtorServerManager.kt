@@ -6,6 +6,7 @@ import com.geminiflow.app.data.storage.TrafficLogManager
 import com.geminiflow.app.domain.model.server.ServerState
 import com.geminiflow.app.domain.repository.ImageRepository
 import com.geminiflow.app.domain.server.ServerManager
+import com.geminiflow.app.domain.telemetry.notifier.ServerRequestStatusNotifier
 import com.geminiflow.app.domain.usecase.StreamChatUseCase
 import com.geminiflow.app.server.routes.chatRoute
 import com.geminiflow.app.server.routes.healthRoute
@@ -46,7 +47,8 @@ class KtorServerManager(
     private val streamChatUseCase: StreamChatUseCase,
     private val imageRepository: ImageRepository,
     private val trafficLogManager: TrafficLogManager,
-    private val apiLogManager: ApiLogManager
+    private val apiLogManager: ApiLogManager,
+    private val serverRequestStatusNotifier: ServerRequestStatusNotifier
 ) : ServerManager {
 
     companion object {
@@ -107,6 +109,7 @@ class KtorServerManager(
                             streamChatUseCase = streamChatUseCase,
                             trafficLogManager = trafficLogManager,
                             apiLogManager = apiLogManager,
+                            serverRequestStatusNotifier = serverRequestStatusNotifier,
                             onRequestStarted = {
                                 totalRequests.incrementAndGet()
                                 activeConnections.incrementAndGet()
@@ -121,6 +124,7 @@ class KtorServerManager(
                             streamChatUseCase = streamChatUseCase,
                             trafficLogManager = trafficLogManager,
                             apiLogManager = apiLogManager,
+                            serverRequestStatusNotifier = serverRequestStatusNotifier,
                             onRequestStarted = {
                                 totalRequests.incrementAndGet()
                                 activeConnections.incrementAndGet()

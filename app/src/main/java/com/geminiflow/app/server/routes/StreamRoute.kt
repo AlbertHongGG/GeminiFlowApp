@@ -25,16 +25,23 @@ import com.geminiflow.app.domain.model.log.ApiLogResponse
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
+import com.geminiflow.app.domain.telemetry.classifier.ServerRequestErrorClassifier
+import com.geminiflow.app.domain.telemetry.model.ServerRequestLifecycleEvent
+import com.geminiflow.app.domain.telemetry.notifier.ServerRequestStatusNotifier
+import java.util.UUID
+
 fun Route.streamRoute(
     streamChatUseCase: StreamChatUseCase,
     trafficLogManager: TrafficLogManager,
     apiLogManager: ApiLogManager,
+    serverRequestStatusNotifier: ServerRequestStatusNotifier,
     onRequestStarted: () -> Unit,
     onRequestEnded: () -> Unit
 ) {
     post("/stream") {
         val t0 = System.currentTimeMillis()
         val clientIp = call.request.local.remoteHost
+        val requestId = UUID.randomUUID().toString()
         onRequestStarted()
 
         var promptSummary: String? = null
@@ -42,6 +49,20 @@ fun Route.streamRoute(
             val requestDto = call.receive<ChatRequestDto>()
             promptSummary = requestDto.prompt.take(120)
             if (requestDto.model.isNullOrBlank()) {
+                val attribution = ServerRequestErrorClassifier.classify(
+                    throwable = null,
+                    manualStatusCode = 400,
+                    fallbackMessage = "缺少模型參數 (model)，呼叫端必須明確指定欲使用的模型"
+                )
+                serverRequestStatusNotifier.notifyFailed(
+                    ServerRequestLifecycleEvent.Failed(
+                        requestId = requestId,
+                        endpoint = "/stream",
+                        errorAttribution = attribution,
+                        durationMs = System.currentTimeMillis() - t0
+                    )
+                )
+
                 call.respond(
                     HttpStatusCode.BadRequest,
                     ErrorResponseDto("缺少模型參數 (model)，呼叫端必須明確指定欲使用的模型")
@@ -58,6 +79,16 @@ fun Route.streamRoute(
                 )
                 return@post
             }
+
+            serverRequestStatusNotifier.notifyReceived(
+                ServerRequestLifecycleEvent.Received(
+                    requestId = requestId,
+                    endpoint = "/stream",
+                    model = requestDto.model,
+                    promptSnippet = promptSummary,
+                    clientIp = clientIp
+                )
+            )
             val domainRequest = RouteUtils.mapToDomainRequest(requestDto)
 
             val scheme = "http"
@@ -70,10 +101,12 @@ fun Route.streamRoute(
 
             val fullResponseText = StringBuilder()
             val imagesSaved = mutableListOf<String>()
+            var chunkIndex = 0
 
             call.respondTextWriter(contentType = ContentType.Text.EventStream) {
                 try {
                     streamChatUseCase(domainRequest).collect { chunk ->
+                        chunkIndex++
                         if (!chunk.text.isNullOrEmpty()) {
                             fullResponseText.append(chunk.text)
                             val dataJson = buildJsonObject {
@@ -93,12 +126,32 @@ fun Route.streamRoute(
                             write("event: image\ndata: $dataJson\n\n")
                             flush()
                         }
+
+                        serverRequestStatusNotifier.notifyStreaming(
+                            ServerRequestLifecycleEvent.Streaming(
+                                requestId = requestId,
+                                endpoint = "/stream",
+                                charCount = fullResponseText.length,
+                                chunkIndex = chunkIndex,
+                                elapsedMs = System.currentTimeMillis() - t0
+                            )
+                        )
                     }
 
                     write("event: done\ndata: {}\n\n")
                     flush()
                     val streamDuration = System.currentTimeMillis() - t0
                     val fullText = fullResponseText.toString()
+
+                    serverRequestStatusNotifier.notifyCompleted(
+                        ServerRequestLifecycleEvent.Completed(
+                            requestId = requestId,
+                            endpoint = "/stream",
+                            totalChars = fullText.length,
+                            durationMs = streamDuration,
+                            statusCode = 200
+                        )
+                    )
 
                     trafficLogManager.record(
                         TrafficLog(
@@ -130,6 +183,15 @@ fun Route.streamRoute(
                         )
                     )
                 } catch (e: AuthenticationRequiredException) {
+                    val attribution = ServerRequestErrorClassifier.classify(e)
+                    serverRequestStatusNotifier.notifyFailed(
+                        ServerRequestLifecycleEvent.Failed(
+                            requestId = requestId,
+                            endpoint = "/stream",
+                            errorAttribution = attribution,
+                            durationMs = System.currentTimeMillis() - t0
+                        )
+                    )
                     val err = buildJsonObject {
                         put("error", e.message ?: "未授權")
                         put("status", 401)
@@ -138,6 +200,15 @@ fun Route.streamRoute(
                     flush()
                     RouteUtils.recordErrorTraffic(trafficLogManager, "POST", "/stream", 401, t0, clientIp, promptSummary, e.message)
                 } catch (e: Exception) {
+                    val attribution = ServerRequestErrorClassifier.classify(e)
+                    serverRequestStatusNotifier.notifyFailed(
+                        ServerRequestLifecycleEvent.Failed(
+                            requestId = requestId,
+                            endpoint = "/stream",
+                            errorAttribution = attribution,
+                            durationMs = System.currentTimeMillis() - t0
+                        )
+                    )
                     val err = buildJsonObject {
                         put("error", e.message ?: "串流處理錯誤")
                         put("status", 500)
@@ -149,6 +220,15 @@ fun Route.streamRoute(
             }
         } catch (e: Exception) {
             Log.e("StreamRoute", "Error preparing /stream request: ${e.message}", e)
+            val attribution = ServerRequestErrorClassifier.classify(e, manualStatusCode = 400)
+            serverRequestStatusNotifier.notifyFailed(
+                ServerRequestLifecycleEvent.Failed(
+                    requestId = requestId,
+                    endpoint = "/stream",
+                    errorAttribution = attribution,
+                    durationMs = System.currentTimeMillis() - t0
+                )
+            )
             call.respond(HttpStatusCode.BadRequest, ErrorResponseDto("無效的請求格式: ${e.message}"))
             RouteUtils.recordErrorTraffic(trafficLogManager, "POST", "/stream", 400, t0, clientIp, promptSummary, e.message)
         } finally {

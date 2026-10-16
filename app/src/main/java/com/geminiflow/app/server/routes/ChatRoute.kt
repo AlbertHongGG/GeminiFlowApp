@@ -23,16 +23,23 @@ import com.geminiflow.app.domain.model.log.ApiLogRecord
 import com.geminiflow.app.domain.model.log.ApiLogRequest
 import com.geminiflow.app.domain.model.log.ApiLogResponse
 
+import com.geminiflow.app.domain.telemetry.classifier.ServerRequestErrorClassifier
+import com.geminiflow.app.domain.telemetry.model.ServerRequestLifecycleEvent
+import com.geminiflow.app.domain.telemetry.notifier.ServerRequestStatusNotifier
+import java.util.UUID
+
 fun Route.chatRoute(
     streamChatUseCase: StreamChatUseCase,
     trafficLogManager: TrafficLogManager,
     apiLogManager: ApiLogManager,
+    serverRequestStatusNotifier: ServerRequestStatusNotifier,
     onRequestStarted: () -> Unit,
     onRequestEnded: () -> Unit
 ) {
     post("/chat") {
         val t0 = System.currentTimeMillis()
         val clientIp = call.request.local.remoteHost
+        val requestId = UUID.randomUUID().toString()
         onRequestStarted()
 
         var promptSummary: String? = null
@@ -40,6 +47,20 @@ fun Route.chatRoute(
             val requestDto = call.receive<ChatRequestDto>()
             promptSummary = requestDto.prompt.take(120)
             if (requestDto.model.isNullOrBlank()) {
+                val attribution = ServerRequestErrorClassifier.classify(
+                    throwable = null,
+                    manualStatusCode = 400,
+                    fallbackMessage = "缺少模型參數 (model)，呼叫端必須明確指定欲使用的模型"
+                )
+                serverRequestStatusNotifier.notifyFailed(
+                    ServerRequestLifecycleEvent.Failed(
+                        requestId = requestId,
+                        endpoint = "/chat",
+                        errorAttribution = attribution,
+                        durationMs = System.currentTimeMillis() - t0
+                    )
+                )
+
                 call.respond(
                     HttpStatusCode.BadRequest,
                     ErrorResponseDto("缺少模型參數 (model)，呼叫端必須明確指定欲使用的模型")
@@ -56,6 +77,16 @@ fun Route.chatRoute(
                 )
                 return@post
             }
+
+            serverRequestStatusNotifier.notifyReceived(
+                ServerRequestLifecycleEvent.Received(
+                    requestId = requestId,
+                    endpoint = "/chat",
+                    model = requestDto.model,
+                    promptSnippet = promptSummary,
+                    clientIp = clientIp
+                )
+            )
             val domainRequest = RouteUtils.mapToDomainRequest(requestDto)
 
             val textParts = StringBuilder()
@@ -76,11 +107,22 @@ fun Route.chatRoute(
             }
 
             val fullText = textParts.toString()
+            val duration = System.currentTimeMillis() - t0
+
+            serverRequestStatusNotifier.notifyCompleted(
+                ServerRequestLifecycleEvent.Completed(
+                    requestId = requestId,
+                    endpoint = "/chat",
+                    totalChars = fullText.length,
+                    durationMs = duration,
+                    statusCode = 200
+                )
+            )
+
             call.respond(
                 HttpStatusCode.OK,
                 ChatResponseDto(text = fullText, images = imagesSaved)
             )
-            val duration = System.currentTimeMillis() - t0
             trafficLogManager.record(
                 TrafficLog(
                     method = "POST",
@@ -111,19 +153,64 @@ fun Route.chatRoute(
                 )
             )
         } catch (e: AuthenticationRequiredException) {
+            val attribution = ServerRequestErrorClassifier.classify(e)
+            serverRequestStatusNotifier.notifyFailed(
+                ServerRequestLifecycleEvent.Failed(
+                    requestId = requestId,
+                    endpoint = "/chat",
+                    errorAttribution = attribution,
+                    durationMs = System.currentTimeMillis() - t0
+                )
+            )
             call.respond(HttpStatusCode.Unauthorized, ErrorResponseDto(e.message ?: "未授權"))
             RouteUtils.recordErrorTraffic(trafficLogManager, "POST", "/chat", 401, t0, clientIp, promptSummary, e.message)
         } catch (e: TokenExpiredException) {
+            val attribution = ServerRequestErrorClassifier.classify(e)
+            serverRequestStatusNotifier.notifyFailed(
+                ServerRequestLifecycleEvent.Failed(
+                    requestId = requestId,
+                    endpoint = "/chat",
+                    errorAttribution = attribution,
+                    durationMs = System.currentTimeMillis() - t0
+                )
+            )
             call.respond(HttpStatusCode.Unauthorized, ErrorResponseDto(e.message ?: "憑證過期"))
             RouteUtils.recordErrorTraffic(trafficLogManager, "POST", "/chat", 401, t0, clientIp, promptSummary, e.message)
         } catch (e: NetworkException) {
+            val attribution = ServerRequestErrorClassifier.classify(e)
+            serverRequestStatusNotifier.notifyFailed(
+                ServerRequestLifecycleEvent.Failed(
+                    requestId = requestId,
+                    endpoint = "/chat",
+                    errorAttribution = attribution,
+                    durationMs = System.currentTimeMillis() - t0
+                )
+            )
             call.respond(HttpStatusCode.BadGateway, ErrorResponseDto(e.message ?: "網路連線異常"))
             RouteUtils.recordErrorTraffic(trafficLogManager, "POST", "/chat", 502, t0, clientIp, promptSummary, e.message)
         } catch (e: PayloadException) {
+            val attribution = ServerRequestErrorClassifier.classify(e)
+            serverRequestStatusNotifier.notifyFailed(
+                ServerRequestLifecycleEvent.Failed(
+                    requestId = requestId,
+                    endpoint = "/chat",
+                    errorAttribution = attribution,
+                    durationMs = System.currentTimeMillis() - t0
+                )
+            )
             call.respond(HttpStatusCode.UnprocessableEntity, ErrorResponseDto(e.message ?: "請求內容錯誤"))
             RouteUtils.recordErrorTraffic(trafficLogManager, "POST", "/chat", 422, t0, clientIp, promptSummary, e.message)
         } catch (e: Exception) {
             Log.e("ChatRoute", "Error handling /chat request: ${e.message}", e)
+            val attribution = ServerRequestErrorClassifier.classify(e)
+            serverRequestStatusNotifier.notifyFailed(
+                ServerRequestLifecycleEvent.Failed(
+                    requestId = requestId,
+                    endpoint = "/chat",
+                    errorAttribution = attribution,
+                    durationMs = System.currentTimeMillis() - t0
+                )
+            )
             call.respond(HttpStatusCode.InternalServerError, ErrorResponseDto(e.message ?: "伺服器內部錯誤"))
             RouteUtils.recordErrorTraffic(trafficLogManager, "POST", "/chat", 500, t0, clientIp, promptSummary, e.message)
         } finally {

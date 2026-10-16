@@ -35,6 +35,8 @@ import com.geminiflow.app.domain.usecase.StreamChatUseCase
 import com.geminiflow.app.presentation.notification.NotificationController
 import com.geminiflow.app.domain.server.ServerManager
 import com.geminiflow.app.server.KtorServerManager
+import com.geminiflow.app.domain.telemetry.notifier.ServerRequestStatusNotifier
+import com.geminiflow.app.service.notification.AndroidSystemStatusNotifierImpl
 import com.geminiflow.app.service.BatteryOptimizationHelper
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
@@ -78,6 +80,8 @@ class GeminiFlowApplication : Application() {
     lateinit var apiLogManager: ApiLogManager
         private set
     lateinit var notificationController: NotificationController
+        private set
+    lateinit var serverRequestStatusNotifier: ServerRequestStatusNotifier
         private set
     lateinit var serverManager: ServerManager
         private set
@@ -124,6 +128,20 @@ class GeminiFlowApplication : Application() {
         notificationController = NotificationController(notificationLogManager)
         NotificationController.init(notificationController)
 
+        val settingsPrefs = getSharedPreferences(
+            AndroidSystemStatusNotifierImpl.PREFS_NAME,
+            Context.MODE_PRIVATE
+        )
+        serverRequestStatusNotifier = AndroidSystemStatusNotifierImpl(
+            context = this,
+            isEnabledProvider = {
+                settingsPrefs.getBoolean(
+                    AndroidSystemStatusNotifierImpl.PREF_KEY_SYSTEM_REQUEST_STATUS_NOTIFICATION_ENABLED,
+                    true
+                )
+            }
+        )
+
         ensureAuthUseCase = EnsureAuthUseCase(authRepository)
         streamChatUseCase = StreamChatUseCase(
             authRepository = authRepository,
@@ -136,7 +154,8 @@ class GeminiFlowApplication : Application() {
             streamChatUseCase = streamChatUseCase,
             imageRepository = imageRepository,
             trafficLogManager = trafficLogManager,
-            apiLogManager = apiLogManager
+            apiLogManager = apiLogManager,
+            serverRequestStatusNotifier = serverRequestStatusNotifier
         )
 
         batteryOptimizationHelper = BatteryOptimizationHelper(this)

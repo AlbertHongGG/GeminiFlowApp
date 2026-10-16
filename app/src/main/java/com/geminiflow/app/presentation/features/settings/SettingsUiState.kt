@@ -9,7 +9,8 @@ data class SettingsUiState(
     val cacheFilesCount: Int = 0,
     val cacheSizeBytes: Long = 0L,
     val isNotificationLoggingEnabled: Boolean = true,
-    val isApiLoggingEnabled: Boolean = true
+    val isApiLoggingEnabled: Boolean = true,
+    val isSystemRequestStatusNotificationEnabled: Boolean = true
 ) {
     val cacheSizeFormatted: String
         get() = when {
