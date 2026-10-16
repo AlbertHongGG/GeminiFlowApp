@@ -39,6 +39,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -107,14 +108,19 @@ fun PlaygroundInputDock(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(selectedImages, key = { it.id }) { item ->
+                        val context = LocalContext.current
+                        val imageRequest = remember(item.uri) {
+                            ImageRequest.Builder(context)
+                                .data(item.uri)
+                                .size(180, 180)
+                                .crossfade(false)
+                                .build()
+                        }
                         Box(
                             modifier = Modifier.size(60.dp)
                         ) {
                             AsyncImage(
-                                model = ImageRequest.Builder(LocalContext.current)
-                                    .data(item.uri)
-                                    .crossfade(true)
-                                    .build(),
+                                model = imageRequest,
                                 contentDescription = item.displayName,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier

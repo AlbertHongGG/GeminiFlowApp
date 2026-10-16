@@ -39,15 +39,41 @@ import com.geminiflow.app.server.KtorServerManager
 import com.geminiflow.app.domain.telemetry.notifier.ServerRequestStatusNotifier
 import com.geminiflow.app.service.notification.AndroidSystemStatusNotifierImpl
 import com.geminiflow.app.service.BatteryOptimizationHelper
+import coil.ImageLoader
+import coil.ImageLoaderFactory
+import coil.disk.DiskCache
+import coil.memory.MemoryCache
+import com.geminiflow.app.data.media.MediaStoreThumbnailFetcher
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
-class GeminiFlowApplication : Application() {
+class GeminiFlowApplication : Application(), ImageLoaderFactory {
 
     companion object {
         const val CHANNEL_ID = "gemini_flow_server_channel"
         lateinit var instance: GeminiFlowApplication
             private set
+    }
+
+    override fun newImageLoader(): ImageLoader {
+        return ImageLoader.Builder(this)
+            .components {
+                add(MediaStoreThumbnailFetcher.Factory(this@GeminiFlowApplication))
+            }
+            .memoryCache {
+                MemoryCache.Builder(this)
+                    .maxSizePercent(0.25)
+                    .build()
+            }
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(cacheDir.resolve("image_cache"))
+                    .maxSizeBytes(150L * 1024 * 1024)
+                    .build()
+            }
+            .crossfade(false)
+            .respectCacheHeaders(false)
+            .build()
     }
 
     lateinit var okHttpClient: OkHttpClient

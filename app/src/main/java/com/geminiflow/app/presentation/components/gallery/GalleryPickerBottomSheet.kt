@@ -229,17 +229,17 @@ private fun GalleryGridView(
 ) {
     val gridState = rememberLazyGridState()
 
-    // 監聽滾動至末端載入更多
+    // 監聽滾動至末端載入更多：提早 24 項（約 8 列、2 個螢幕高度）於背景靜默預載，達成無縫順滑捲動
     val shouldLoadMore by remember {
         derivedStateOf {
             val totalItemsCount = gridState.layoutInfo.totalItemsCount
             val lastVisibleItemIndex = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            totalItemsCount > 0 && lastVisibleItemIndex >= totalItemsCount - 15
+            totalItemsCount > 0 && lastVisibleItemIndex >= totalItemsCount - 24
         }
     }
 
     LaunchedEffect(shouldLoadMore) {
-        if (shouldLoadMore && uiState.hasMore && !uiState.isLoading) {
+        if (shouldLoadMore && uiState.hasMore && !uiState.isLoadingMore && !uiState.isLoading) {
             onLoadMore()
         }
     }
@@ -274,21 +274,21 @@ private fun GalleryGridView(
                 }
             }
 
-            // 該月份下的照片
+            // 該月份下的照片：使用 O(1) selectedIds 與穩定的 onToggleSelect 回調
             items(
                 items = itemsInGroup,
                 key = { it.id }
             ) { item ->
-                val isSelected = uiState.selectedItems.any { it.id == item.id }
+                val isSelected = uiState.selectedIds.contains(item.id)
                 GalleryPhotoThumbnail(
                     item = item,
                     isSelected = isSelected,
-                    onToggle = { onToggleSelect(item) }
+                    onToggle = onToggleSelect
                 )
             }
         }
 
-        if (uiState.isLoading && uiState.allAssets.isNotEmpty()) {
+        if (uiState.isLoadingMore && uiState.allAssets.isNotEmpty()) {
             item(
                 key = "loading_footer",
                 span = { GridItemSpan(3) }
@@ -314,27 +314,34 @@ private fun GalleryGridView(
 private fun GalleryPhotoThumbnail(
     item: GalleryMediaItem,
     isSelected: Boolean,
-    onToggle: () -> Unit
+    onToggle: (GalleryMediaItem) -> Unit
 ) {
     val context = LocalContext.current
+
+    // 使用 remember 避免每次重組重新建構 ImageRequest 物件
+    // 明確設定 360x360 尺寸並關閉 crossfade 動畫，徹底杜絕滑動時 GPU Alpha 動畫堵塞與重複解碼
+    val imageRequest = remember(item.uri) {
+        ImageRequest.Builder(context)
+            .data(item.uri)
+            .size(360, 360)
+            .crossfade(false)
+            .build()
+    }
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(1f)
-            .clickable(onClick = onToggle)
+            .clickable { onToggle(item) }
     ) {
         AsyncImage(
-            model = ImageRequest.Builder(context)
-                .data(item.uri)
-                .crossfade(true)
-                .build(),
+            model = imageRequest,
             contentDescription = item.displayName,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
 
-        // 選中狀態遮罩、邊框與打勾標記 (完美還原 LensWise 圖二)
+        // 選中狀態遮罩、邊框與打勾標記
         if (isSelected) {
             // 半透明暗色遮罩
             Box(

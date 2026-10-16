@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,6 +41,14 @@ fun CachedImageGridItem(
         else -> String.format(Locale.US, "%.1f MB", item.sizeBytes / (1024.0 * 1024.0))
     }
 
+    val imageRequest = remember(item.file) {
+        ImageRequest.Builder(context)
+            .data(item.file)
+            .size(360, 360)
+            .crossfade(false)
+            .build()
+    }
+
     Surface(
         modifier = modifier
             .aspectRatio(1f)
@@ -51,10 +60,7 @@ fun CachedImageGridItem(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data(item.file)
-                    .crossfade(true)
-                    .build(),
+                model = imageRequest,
                 contentDescription = item.filename,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
