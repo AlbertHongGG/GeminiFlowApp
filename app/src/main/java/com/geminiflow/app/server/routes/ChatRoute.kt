@@ -88,7 +88,7 @@ fun Route.chatRoute(
 
             @OptIn(FlowPreview::class)
             streamChatUseCase(domainRequest)
-                .timeout(30.seconds)
+                .timeout(120.seconds)
                 .collect { chunk ->
                     if (!chunk.text.isNullOrEmpty()) {
                         textParts.append(chunk.text)

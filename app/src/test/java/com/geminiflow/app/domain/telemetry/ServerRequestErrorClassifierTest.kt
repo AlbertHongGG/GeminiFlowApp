@@ -86,7 +86,7 @@ class ServerRequestErrorClassifierTest {
 
         assertTrue(attribution is ServerRequestErrorAttribution.ServerFault)
         assertEquals(504, attribution.statusCode)
-        assertTrue(attribution.summary.contains("30 秒"))
+        assertTrue(attribution.summary.contains("120 秒"))
     }
 
     @Test

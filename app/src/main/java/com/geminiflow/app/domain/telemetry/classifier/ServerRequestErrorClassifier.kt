@@ -169,7 +169,7 @@ object ServerRequestErrorClassifier {
             is TimeoutCancellationException -> {
                 ServerRequestErrorAttribution.ServerFault(
                     statusCode = 504,
-                    summary = "串流傳輸逾時：${throwable.message ?: "上游超過 30 秒未發送資料"}",
+                    summary = "串流傳輸逾時：${throwable.message ?: "上游超過 120 秒未發送資料"}",
                     diagnosticAction = "上游 Google Gemini 未如期回應或網路阻斷，系統已主動終止連線防止卡死"
                 )
             }

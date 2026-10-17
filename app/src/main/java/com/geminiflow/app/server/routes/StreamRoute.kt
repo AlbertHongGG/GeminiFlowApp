@@ -100,7 +100,7 @@ fun Route.streamRoute(
                 try {
                     @OptIn(FlowPreview::class)
                     streamChatUseCase(domainRequest)
-                        .timeout(30.seconds)
+                        .timeout(120.seconds)
                         .collect { chunk ->
                             chunkIndex++
                             if (!chunk.text.isNullOrEmpty()) {
